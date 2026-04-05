@@ -31,28 +31,46 @@ exports.createProduct = async (req, res) => {
 
 exports.getProducts = async (req, res) => {
   try {
-    const { category, search, page = 1, limit = 10 } = req.query;
-    const query = {};
+    let query = {};
+    const { category, search, sort, page = 1, limit = 10 } = req.query;
 
     if (category) {
-      query.category = category;
+      const categories = category
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      if (categories.length > 1) {
+        query.category = { $in: categories };
+      } else if (categories.length === 1) {
+        query.category = categories[0];
+      }
     }
 
     if (search) {
       query.name = { $regex: search, $options: "i" };
     }
 
+    const sortOptions = {
+      price_asc: { price: 1 },
+      price_desc: { price: -1 },
+      views_desc: { views: -1 },
+    };
+    const sortQuery = sortOptions[sort] || { createdAt: -1 };
+
     const pageNumber = Math.max(Number(page) || 1, 1);
     const limitNumber = Math.max(Number(limit) || 10, 1);
     const skip = (pageNumber - 1) * limitNumber;
 
     const [products, total] = await Promise.all([
-      Product.find(query).skip(skip).limit(limitNumber).sort({ createdAt: -1 }),
+      Product.find(query).sort(sortQuery).skip(skip).limit(limitNumber),
       Product.countDocuments(query),
     ]);
 
     return res.status(200).json({
       products,
+      total,
+      page: pageNumber,
       pagination: {
         total,
         page: pageNumber,
@@ -61,6 +79,7 @@ exports.getProducts = async (req, res) => {
       },
     });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ message: "Failed to fetch products" });
   }
 };
