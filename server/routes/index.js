@@ -10,6 +10,6 @@ const orderRoutes = require("./order.routes");
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
 router.use("/products", productRoutes);
-router.use("/orders", orderRoutes);
+router.use("/", orderRoutes);
 
 module.exports = router;
