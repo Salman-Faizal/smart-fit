@@ -59,7 +59,7 @@ export default function CustomerProductDetail() {
 
         <button
           type="button"
-          className="rounded-xl bg-amber-600 px-6 py-3 font-semibold text-white shadow hover:bg-amber-700"
+          className="rounded-md bg-amber-600 px-5 py-2 font-semibold text-white shadow hover:bg-amber-700"
         >
           Add to Cart
         </button>

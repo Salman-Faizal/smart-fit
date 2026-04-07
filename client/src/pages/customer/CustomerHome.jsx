@@ -73,14 +73,14 @@ export default function CustomerHome() {
             key={product._id}
             product={product}
             to={`/products/${product._id}`}
-            footer={
-              <Link
-                to={`/products/${product._id}`}
-                className="rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700"
-              >
-                View
-              </Link>
-            }
+            // footer={
+            //   <Link
+            //     to={`/products/${product._id}`}
+            //     className="rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+            //   >
+            //     View
+            //   </Link>
+            // }
           />
         ))}
       </div>
