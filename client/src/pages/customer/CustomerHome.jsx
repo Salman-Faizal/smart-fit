@@ -1,16 +1,18 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import ProductCard from "../../components/products/ProductCard";
+import RecommendationSection from "../../components/products/RecommendationSection";
 import {
   EmptyState,
   ErrorState,
   LoadingState,
 } from "../../components/common/StatusState";
 import { useProducts } from "../../hooks/useProducts";
+import { api } from "../../lib/api";
 
 export default function CustomerHome() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
+  const [trending, setTrending] = useState([]);
   const { products, loading, error } = useProducts({ search, category });
 
   const categories = useMemo(
@@ -19,6 +21,21 @@ export default function CustomerHome() {
     ],
     [products],
   );
+
+  useEffect(() => {
+    const loadTrending = async () => {
+      try {
+        const data = await api.getTrendingRecommendations(
+          category ? { category } : {},
+        );
+        setTrending(data.recommendations || []);
+      } catch {
+        setTrending([]);
+      }
+    };
+
+    loadTrending();
+  }, [category]);
 
   return (
     <section className="space-y-6">
@@ -84,6 +101,12 @@ export default function CustomerHome() {
           />
         ))}
       </div>
+
+      <RecommendationSection
+        title={category ? `Trending in ${category}` : "Most Popular Right Now"}
+        badge="Most Popular"
+        products={trending}
+      />
     </section>
   );
 }

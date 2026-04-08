@@ -30,4 +30,22 @@ const authorize = (roles) => (req, res, next) => {
   next();
 };
 
-module.exports = { protect, authorize };
+const optionalProtect = (req, _res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return next();
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+  } catch (_err) {
+    // ignore invalid/expired token for optional auth routes
+  }
+
+  return next();
+};
+
+module.exports = { protect, authorize, optionalProtect };

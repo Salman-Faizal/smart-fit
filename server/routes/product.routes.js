@@ -1,6 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const { protect, authorize } = require("../middleware/auth.middleware");
+const {
+  protect,
+  authorize,
+  optionalProtect,
+} = require("../middleware/auth.middleware");
 const upload = require("../middleware/upload.middleware");
 const {
   createProduct,
@@ -11,7 +15,7 @@ const {
 } = require("../controllers/product.controller");
 
 router.get("/", getProducts);
-router.get("/:id", getSingleProduct);
+router.get("/:id", optionalProtect, getSingleProduct);
 
 router.post(
   "/",

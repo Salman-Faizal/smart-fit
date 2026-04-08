@@ -53,6 +53,15 @@ export const api = {
     return request(`/products${queryString ? `?${queryString}` : ""}`);
   },
   getProductById: (id) => request(`/products/${id}`),
+  getProductRecommendations: (id) => request(`/products/${id}/recommendations`),
+  getTrendingRecommendations: (params = {}) => {
+    const query = new URLSearchParams(params);
+    const queryString = query.toString();
+    return request(
+      `/products/recommendations/trending${queryString ? `?${queryString}` : ""}`,
+    );
+  },
+  getRecentlyViewed: () => request("/users/me/recently-viewed"),
   createProduct: (formData) =>
     request("/products", {
       method: "POST",

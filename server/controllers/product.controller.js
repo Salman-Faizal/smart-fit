@@ -1,4 +1,5 @@
 const Product = require("../models/Product");
+const User = require("../models/User");
 
 exports.createProduct = async (req, res) => {
   try {
@@ -87,20 +88,43 @@ exports.getProducts = async (req, res) => {
 exports.getSingleProduct = async (req, res) => {
   try {
     const { id } = req.params;
+    const shouldTrack = req.user?.role !== "admin";
 
-    const product = await Product.findByIdAndUpdate(
-      id,
-      { $inc: { views: 1 } },
-      { new: true },
-    );
+    const product = shouldTrack
+      ? await Product.findByIdAndUpdate(
+          id,
+          { $inc: { views: 1 } },
+          { new: true },
+        )
+      : await Product.findById(id);
 
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
 
+    if (shouldTrack && req.user?.id) {
+      const user = await User.findById(req.user.id).select("recentlyViewed");
+
+      if (user) {
+        const productId = String(product._id);
+        const filtered = (user.recentlyViewed || []).filter(
+          (item) => String(item) !== productId,
+        );
+
+        user.recentlyViewed = [product._id, ...filtered].slice(0, 10);
+        await user.save();
+      }
+    }
+
     return res.status(200).json(product);
   } catch (err) {
-    return res.status(400).json({ message: "Invalid product id" });
+    console.error("getSingleProduct failed", err);
+
+    if (err.name === "CastError") {
+      return res.status(400).json({ message: "Invalid product id" });
+    }
+
+    return res.status(500).json({ message: "Failed to fetch product" });
   }
 };
 

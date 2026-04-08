@@ -17,6 +17,21 @@ const calculateTotalPrice = (cart) => {
   return cart.totalPrice;
 };
 
+const updatePurchaseCounts = async (items, delta, session) => {
+  if (!Array.isArray(items) || !items.length || !delta) {
+    return;
+  }
+
+  const operations = items.map((item) => ({
+    updateOne: {
+      filter: { _id: item.product },
+      update: { $inc: { purchases: Number(item.quantity) * delta } },
+    },
+  }));
+
+  await Product.bulkWrite(operations, { session });
+};
+
 const validateStock = async (productId, quantity, session = null) => {
   if (!mongoose.Types.ObjectId.isValid(productId)) {
     throw createHttpError(400, "Invalid productId");
@@ -198,6 +213,8 @@ const checkoutOrder = async (userId, paymentMethod) => {
       }
     }
 
+    await updatePurchaseCounts(cart.items, 1, session);
+
     cart.paymentMethod = "PAYHERE";
     cart.paymentStatus = "PAID";
     cart.status = "PAID";
@@ -290,6 +307,8 @@ const updateOrderStatus = async (orderId, status) => {
         }
       }
 
+      await updatePurchaseCounts(order.items, 1, session);
+
       order.paymentStatus = "PAID";
     }
 
@@ -305,6 +324,8 @@ const updateOrderStatus = async (orderId, status) => {
           { session },
         );
       }
+
+      await updatePurchaseCounts(order.items, -1, session);
 
       order.paymentStatus = "FAILED";
     }
