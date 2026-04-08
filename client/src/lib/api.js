@@ -78,4 +78,11 @@ export const api = {
     request(`/products/${id}`, {
       method: "DELETE",
     }),
+  getAdminDashboardMetrics: (params = {}) => {
+    const query = new URLSearchParams(params);
+    const queryString = query.toString();
+    return request(
+      `/admin/dashboard/metrics${queryString ? `?${queryString}` : ""}`,
+    );
+  },
 };
