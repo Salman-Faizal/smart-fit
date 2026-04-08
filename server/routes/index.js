@@ -7,6 +7,7 @@ const recommendationRoutes = require("./recommendation.routes");
 const productRoutes = require("./product.routes");
 const orderRoutes = require("./order.routes");
 const adminRoutes = require("./admin.routes");
+const paymentRoutes = require("./payment.routes");
 
 // mount routes
 router.use("/auth", authRoutes);
@@ -15,5 +16,6 @@ router.use("/products", recommendationRoutes);
 router.use("/products", productRoutes);
 router.use("/", orderRoutes);
 router.use("/", adminRoutes);
+router.use("/", paymentRoutes);
 
 module.exports = router;

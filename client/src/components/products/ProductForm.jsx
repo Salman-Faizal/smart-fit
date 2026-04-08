@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { assetUrl } from "../../lib/api";
 
 const initialValues = {
   name: "",
@@ -13,12 +14,18 @@ export default function ProductForm({
   loading,
   submitLabel,
   defaultValues = initialValues,
+  existingImages = [],
 }) {
   const [formData, setFormData] = useState({
     ...initialValues,
     ...defaultValues,
   });
   const [imageFiles, setImageFiles] = useState([]);
+
+  const previewUrls = useMemo(
+    () => imageFiles.map((file) => URL.createObjectURL(file)),
+    [imageFiles],
+  );
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -30,7 +37,7 @@ export default function ProductForm({
 
     const payload = new FormData();
     Object.entries(formData).forEach(([key, value]) =>
-      payload.append(key, value),
+      payload.append(key, value ?? ""),
     );
     imageFiles.forEach((file) => payload.append("images", file));
 
@@ -100,6 +107,30 @@ export default function ProductForm({
           className="mt-2 block w-full rounded-lg border border-slate-300 p-2 text-sm"
         />
       </label>
+
+      {previewUrls.length ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {previewUrls.map((previewUrl, index) => (
+            <img
+              key={`${previewUrl}-${index}`}
+              src={previewUrl}
+              alt={`new-upload-${index + 1}`}
+              className="h-24 w-full rounded-md object-cover"
+            />
+          ))}
+        </div>
+      ) : existingImages.length ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {existingImages.map((image, index) => (
+            <img
+              key={`${image}-${index}`}
+              src={assetUrl(image)}
+              alt={`existing-${index + 1}`}
+              className="h-24 w-full rounded-md object-cover"
+            />
+          ))}
+        </div>
+      ) : null}
 
       <button
         type="submit"

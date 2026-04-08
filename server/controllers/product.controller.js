@@ -1,6 +1,14 @@
 const Product = require("../models/Product");
 const User = require("../models/User");
 const { prependUniqueWithLimit } = require("../services/userTracking.service");
+const { destroyCloudinaryAssets } = require("../utils/cloudinaryAsset");
+
+const mapUploadedFiles = (files = []) => {
+  return files.map((file) => ({
+    url: file.path || file.secure_url,
+    publicId: file.filename || file.public_id,
+  }));
+};
 
 exports.createProduct = async (req, res) => {
   try {
@@ -12,9 +20,7 @@ exports.createProduct = async (req, res) => {
       });
     }
 
-    const images = (req.files || []).map(
-      (file) => `/uploads/products/${file.filename}`,
-    );
+    const uploadedImages = mapUploadedFiles(req.files || []);
 
     const product = await Product.create({
       name,
@@ -22,11 +28,12 @@ exports.createProduct = async (req, res) => {
       category,
       price: Number(price),
       stock: Number(stock),
-      images,
+      images: uploadedImages.map((image) => image.url),
+      imagePublicIds: uploadedImages.map((image) => image.publicId),
     });
 
     return res.status(201).json(product);
-  } catch (err) {
+  } catch (_err) {
     return res.status(500).json({ message: "Failed to create product" });
   }
 };
@@ -140,6 +147,12 @@ exports.updateProduct = async (req, res) => {
     const { id } = req.params;
     const { name, description, category, price, stock } = req.body || {};
 
+    const product = await Product.findById(id);
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
     const updates = {};
 
     if (name !== undefined) updates.name = name;
@@ -156,22 +169,18 @@ exports.updateProduct = async (req, res) => {
     }
 
     if (req.files && req.files.length > 0) {
-      updates.images = req.files.map(
-        (file) => `/uploads/products/${file.filename}`,
-      );
+      const uploadedImages = mapUploadedFiles(req.files);
+      updates.images = uploadedImages.map((image) => image.url);
+      updates.imagePublicIds = uploadedImages.map((image) => image.publicId);
+
+      await destroyCloudinaryAssets(product.imagePublicIds || []);
     }
 
-    const product = await Product.findByIdAndUpdate(id, updates, {
-      new: true,
-      runValidators: true,
-    });
-
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
-    }
+    Object.assign(product, updates);
+    await product.save();
 
     return res.status(200).json(product);
-  } catch (err) {
+  } catch (_err) {
     return res.status(400).json({ message: "Failed to update product" });
   }
 };
@@ -186,8 +195,10 @@ exports.deleteProduct = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
+    await destroyCloudinaryAssets(product.imagePublicIds || []);
+
     return res.status(200).json({ message: "Product deleted successfully" });
-  } catch (err) {
+  } catch (_err) {
     return res.status(400).json({ message: "Failed to delete product" });
   }
 };

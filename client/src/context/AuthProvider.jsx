@@ -19,6 +19,18 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
+  const refreshProfile = async () => {
+    const data = await api.getProfile();
+    storage.setUser(data.user);
+    setUser(data.user);
+    return data.user;
+  };
+
+  const updateUser = (nextUser) => {
+    storage.setUser(nextUser);
+    setUser(nextUser);
+  };
+
   const logout = () => {
     storage.clearAuth();
     setToken(null);
@@ -32,6 +44,8 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(token && user),
       login,
       logout,
+      refreshProfile,
+      updateUser,
     }),
     [token, user],
   );

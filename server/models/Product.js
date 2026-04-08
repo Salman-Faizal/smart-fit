@@ -26,7 +26,11 @@ const productSchema = new mongoose.Schema(
     },
     images: {
       type: [String],
-      default: [], // image URLs (file paths for now)
+      default: [],
+    },
+    imagePublicIds: {
+      type: [String],
+      default: [],
     },
     views: {
       type: Number,

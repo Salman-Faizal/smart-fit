@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import logo from "../../assets/logo.png";
 import { useAuth } from "../../hooks/useAuth";
+import { assetUrl } from "../../lib/api";
 
 export default function CustomerLayout() {
   const { user, logout } = useAuth();
@@ -23,9 +24,29 @@ export default function CustomerLayout() {
             >
               Home
             </NavLink>
+            <NavLink
+              to="/profile"
+              className="text-sm font-medium text-slate-700 hover:text-amber-600"
+            >
+              Profile
+            </NavLink>
+            <NavLink
+              to="/payments/slip"
+              className="text-sm font-medium text-slate-700 hover:text-amber-600"
+            >
+              Payments
+            </NavLink>
           </nav>
 
           <div className="flex items-center gap-3">
+            <img
+              src={
+                assetUrl(user?.avatar?.url) ||
+                "https://placehold.co/100x100?text=U"
+              }
+              alt="User avatar"
+              className="h-10 w-10 rounded-full border border-slate-200 object-cover"
+            />
             <div className="hidden text-right sm:block">
               <p className="text-sm font-semibold text-slate-800">
                 {user?.name}

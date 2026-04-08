@@ -10,6 +10,8 @@ import {
 import SignIn from "./pages/SignIn";
 import CustomerHome from "./pages/customer/CustomerHome";
 import CustomerProductDetail from "./pages/customer/CustomerProductDetail";
+import CustomerProfilePage from "./pages/customer/CustomerProfilePage";
+import PaymentSlipUploadPage from "./pages/customer/PaymentSlipUploadPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProductsPage from "./pages/admin/AdminProductsPage";
 import AdminProductCreatePage from "./pages/admin/AdminProductCreatePage";
@@ -26,6 +28,8 @@ function App() {
           <Route element={<CustomerLayout />}>
             <Route path="/home" element={<CustomerHome />} />
             <Route path="/products/:id" element={<CustomerProductDetail />} />
+            <Route path="/profile" element={<CustomerProfilePage />} />
+            <Route path="/payments/slip" element={<PaymentSlipUploadPage />} />
           </Route>
         </Route>
 

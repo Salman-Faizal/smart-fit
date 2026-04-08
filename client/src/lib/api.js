@@ -47,6 +47,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  getProfile: () => request("/users/profile"),
+  uploadAvatar: (formData) =>
+    request("/users/me/avatar", {
+      method: "POST",
+      body: formData,
+    }),
+  uploadPaymentSlip: (orderId, formData) =>
+    request(`/payments/orders/${orderId}/slip`, {
+      method: "POST",
+      body: formData,
+    }),
+  getPaymentSlip: (orderId) => request(`/payments/orders/${orderId}/slip`),
   getProducts: (params = {}) => {
     const query = new URLSearchParams(params);
     const queryString = query.toString();

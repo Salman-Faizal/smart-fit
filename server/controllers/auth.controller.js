@@ -1,6 +1,14 @@
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 
+const buildAuthUser = (user) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  avatar: user.avatar || null,
+});
+
 exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body || {};
@@ -63,14 +71,9 @@ exports.login = async (req, res) => {
     res.status(200).json({
       message: "Login Successful!",
       token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
+      user: buildAuthUser(user),
     });
-  } catch (err) {
+  } catch (_err) {
     res.status(500).json({ message: "Login Failed" });
   }
 };

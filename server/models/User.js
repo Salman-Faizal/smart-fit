@@ -1,6 +1,14 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
+const avatarSchema = new mongoose.Schema(
+  {
+    url: String,
+    publicId: String,
+  },
+  { _id: false },
+);
+
 const userSchema = new mongoose.Schema(
   {
     name: String,
@@ -18,6 +26,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["customer", "admin"],
       default: "customer",
+    },
+    avatar: {
+      type: avatarSchema,
+      default: null,
     },
     recentlyViewed: [
       {

@@ -5,7 +5,10 @@ const {
   authorize,
   optionalProtect,
 } = require("../middleware/auth.middleware");
-const upload = require("../middleware/upload.middleware");
+const {
+  runUpload,
+  uploadProductImages,
+} = require("../middleware/upload.middleware");
 const {
   createProduct,
   getProducts,
@@ -21,7 +24,7 @@ router.post(
   "/",
   protect,
   authorize(["admin"]),
-  upload.array("images", 10),
+  runUpload(uploadProductImages),
   createProduct,
 );
 
@@ -29,7 +32,7 @@ router.put(
   "/:id",
   protect,
   authorize(["admin"]),
-  upload.array("images", 10),
+  runUpload(uploadProductImages),
   updateProduct,
 );
 

@@ -67,6 +67,7 @@ export default function AdminProductEditPage() {
         submitLabel="Save Changes"
         onSubmit={handleSubmit}
         loading={submitting}
+        existingImages={product.images || []}
         defaultValues={{
           name: product.name,
           category: product.category,
