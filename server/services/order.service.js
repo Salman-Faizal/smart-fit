@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
+const User = require("../models/User");
+const { appendUniqueWithLimit } = require("./userTracking.service");
 
 const createHttpError = (statusCode, message) => {
   const error = new Error(message);
@@ -30,6 +32,26 @@ const updatePurchaseCounts = async (items, delta, session) => {
   }));
 
   await Product.bulkWrite(operations, { session });
+};
+
+const trackPurchasedProducts = async (userId, items, session) => {
+  if (!mongoose.Types.ObjectId.isValid(userId) || !Array.isArray(items)) {
+    return;
+  }
+
+  const user = await User.findById(userId).select("role purchasedProducts");
+
+  if (!user || user.role !== "customer") {
+    return;
+  }
+
+  const purchasedIds = items.map((item) => item.product);
+  user.purchasedProducts = appendUniqueWithLimit(
+    user.purchasedProducts,
+    purchasedIds,
+  );
+
+  await user.save({ session });
 };
 
 const validateStock = async (productId, quantity, session = null) => {
@@ -214,6 +236,7 @@ const checkoutOrder = async (userId, paymentMethod) => {
     }
 
     await updatePurchaseCounts(cart.items, 1, session);
+    await trackPurchasedProducts(cart.user, cart.items, session);
 
     cart.paymentMethod = "PAYHERE";
     cart.paymentStatus = "PAID";
@@ -308,6 +331,7 @@ const updateOrderStatus = async (orderId, status) => {
       }
 
       await updatePurchaseCounts(order.items, 1, session);
+      await trackPurchasedProducts(order.user, order.items, session);
 
       order.paymentStatus = "PAID";
     }

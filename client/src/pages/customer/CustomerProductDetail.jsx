@@ -10,6 +10,9 @@ export default function CustomerProductDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [recommendations, setRecommendations] = useState([]);
+  const [alsoViewedRecommendations, setAlsoViewedRecommendations] = useState(
+    [],
+  );
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -19,6 +22,8 @@ export default function CustomerProductDetail() {
         setProduct(data);
         const recommendationData = await api.getProductRecommendations(id);
         setRecommendations(recommendationData.recommendations || []);
+        const alsoViewedData = await api.getAlsoViewedRecommendations(id);
+        setAlsoViewedRecommendations(alsoViewedData.recommendations || []);
       } catch (err) {
         setError(err.message || "Unable to fetch product");
       } finally {
@@ -75,6 +80,11 @@ export default function CustomerProductDetail() {
         title="Recommended for You"
         badge="Customers also love"
         products={recommendations}
+      />
+      <RecommendationSection
+        title="Customers also viewed"
+        badge="Popular with similar users"
+        products={alsoViewedRecommendations}
       />
     </section>
   );

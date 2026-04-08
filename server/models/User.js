@@ -25,6 +25,18 @@ const userSchema = new mongoose.Schema(
         ref: "Product",
       },
     ],
+    viewedProducts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+      },
+    ],
+    purchasedProducts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+      },
+    ],
   },
   {
     timestamps: true,

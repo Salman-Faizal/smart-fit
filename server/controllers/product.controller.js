@@ -1,5 +1,6 @@
 const Product = require("../models/Product");
 const User = require("../models/User");
+const { prependUniqueWithLimit } = require("../services/userTracking.service");
 
 exports.createProduct = async (req, res) => {
   try {
@@ -102,16 +103,22 @@ exports.getSingleProduct = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    if (shouldTrack && req.user?.id) {
-      const user = await User.findById(req.user.id).select("recentlyViewed");
+    if (shouldTrack && req.user?.id && req.user?.role === "customer") {
+      const user = await User.findById(req.user.id).select(
+        "recentlyViewed viewedProducts",
+      );
 
       if (user) {
-        const productId = String(product._id);
-        const filtered = (user.recentlyViewed || []).filter(
-          (item) => String(item) !== productId,
+        user.recentlyViewed = prependUniqueWithLimit(
+          user.recentlyViewed,
+          product._id,
+          10,
+        );
+        user.viewedProducts = prependUniqueWithLimit(
+          user.viewedProducts,
+          product._id,
         );
 
-        user.recentlyViewed = [product._id, ...filtered].slice(0, 10);
         await user.save();
       }
     }

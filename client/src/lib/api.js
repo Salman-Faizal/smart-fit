@@ -54,6 +54,8 @@ export const api = {
   },
   getProductById: (id) => request(`/products/${id}`),
   getProductRecommendations: (id) => request(`/products/${id}/recommendations`),
+  getAlsoViewedRecommendations: (id) =>
+    request(`/products/recommendations/also-viewed/${id}`),
   getTrendingRecommendations: (params = {}) => {
     const query = new URLSearchParams(params);
     const queryString = query.toString();

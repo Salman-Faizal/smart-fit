@@ -33,3 +33,21 @@ exports.getTrendingRecommendations = async (req, res) => {
       .json({ message: "Failed to load trending products" });
   }
 };
+
+exports.getHybridAlsoViewedRecommendations = async (req, res) => {
+  try {
+    const recommendations =
+      await recommendationService.getHybridAlsoViewedRecommendations({
+        productId: req.params.productId,
+        userId: req.user?.id,
+        limit: 5,
+      });
+
+    return res.status(200).json({ recommendations });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res
+      .status(statusCode)
+      .json({ message: error.message || "Server error" });
+  }
+};

@@ -149,8 +149,90 @@ const getProductRecommendations = async ({ productId, userId, limit = 5 }) => {
   return deduped;
 };
 
+const getAlsoViewedRecommendations = async (productId, limit = 5) => {
+  if (!mongoose.Types.ObjectId.isValid(productId)) {
+    const error = new Error("Invalid product id");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const users = await User.find({
+    role: "customer",
+    viewedProducts: productId,
+  }).select("viewedProducts");
+
+  if (!users.length) {
+    return [];
+  }
+
+  const counts = new Map();
+
+  for (const user of users) {
+    for (const viewedId of user.viewedProducts || []) {
+      const candidateId = String(viewedId);
+      if (candidateId === String(productId)) continue;
+      counts.set(candidateId, (counts.get(candidateId) || 0) + 1);
+    }
+  }
+
+  const rankedIds = Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, Math.max(limit * 3, limit))
+    .map(([id]) => id);
+
+  if (!rankedIds.length) {
+    return [];
+  }
+
+  const products = await Product.find({
+    _id: { $in: rankedIds },
+  }).select(RECOMMENDATION_SELECT);
+
+  const productMap = new Map(
+    products.map((product) => [String(product._id), product]),
+  );
+
+  const results = [];
+  for (const id of rankedIds) {
+    const product = productMap.get(id);
+    if (!product) continue;
+    results.push(product);
+    if (results.length >= limit) break;
+  }
+
+  return results;
+};
+
+const getHybridAlsoViewedRecommendations = async ({
+  userId,
+  productId,
+  limit = 5,
+}) => {
+  const [alsoViewed, phase1] = await Promise.all([
+    getAlsoViewedRecommendations(productId, limit),
+    getProductRecommendations({ productId, userId, limit }),
+  ]);
+
+  const merged = [];
+  const seen = new Set();
+
+  for (const source of [alsoViewed, phase1]) {
+    for (const product of source) {
+      const id = String(product._id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      merged.push(product);
+      if (merged.length >= limit) return merged;
+    }
+  }
+
+  return merged;
+};
+
 module.exports = {
   RECOMMENDATION_SELECT,
   getProductRecommendations,
   getTrendingRecommendations,
+  getAlsoViewedRecommendations,
+  getHybridAlsoViewedRecommendations,
 };

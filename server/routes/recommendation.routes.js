@@ -8,6 +8,11 @@ router.get(
   recommendationController.getTrendingRecommendations,
 );
 router.get(
+  "/recommendations/also-viewed/:productId",
+  optionalProtect,
+  recommendationController.getHybridAlsoViewedRecommendations,
+);
+router.get(
   "/:productId/recommendations",
   optionalProtect,
   recommendationController.getProductRecommendations,
