@@ -1,14 +1,14 @@
 import { storage } from "./storage";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  "https://smart-fit-cnax.onrender.com/api";
+  import.meta.env.VITE_API_BASE_URL || "https://smart-fit-cnax.onrender.com";
+
+export const API = `${API_BASE_URL}/api`;
 
 export const assetUrl = (path) => {
   if (!path) return "";
   if (path.startsWith("http")) return path;
-  const root = API_BASE_URL.replace(/\/api\/?$/, "");
-  return `${root}${path}`;
+  return `${API_BASE_URL}${path}`;
 };
 
 const notifyCartChanged = () => {
