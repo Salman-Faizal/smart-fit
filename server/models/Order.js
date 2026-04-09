@@ -62,6 +62,33 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: ["PENDING", "PAID", "FAILED"],
       default: "PENDING",
+      index: true,
+    },
+    paymentTransactionId: {
+      type: String,
+      default: "",
+      index: true,
+    },
+    paymentReference: {
+      type: String,
+      default: "",
+    },
+    paymentGateway: {
+      type: String,
+      default: "",
+    },
+    paymentVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+    paymentCallbackStatusCode: {
+      type: String,
+      default: "",
+    },
+    paymentCallbackRaw: {
+      type: Map,
+      of: String,
+      default: {},
     },
     paymentSlipUrl: {
       type: String,

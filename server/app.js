@@ -11,6 +11,7 @@ app.use(
   }),
 );
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 // all routes handled here
 app.use("/api", routes);

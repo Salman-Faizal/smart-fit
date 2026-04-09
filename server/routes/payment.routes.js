@@ -20,4 +20,17 @@ router.get(
   paymentController.getPaymentSlip,
 );
 
+router.post(
+  "/payments/orders/:orderId/payhere-checkout",
+  protect,
+  paymentController.createPayHereCheckout,
+);
+
+router.post(
+  "/payments/payhere-callback",
+  paymentController.handlePayHereCallback,
+);
+router.get("/payments/payhere/success", paymentController.payHereSuccess);
+router.get("/payments/payhere/cancel", paymentController.payHereCancel);
+
 module.exports = router;

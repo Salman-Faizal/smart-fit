@@ -12,6 +12,9 @@ import CustomerHome from "./pages/customer/CustomerHome";
 import CustomerProductDetail from "./pages/customer/CustomerProductDetail";
 import CustomerProfilePage from "./pages/customer/CustomerProfilePage";
 import PaymentSlipUploadPage from "./pages/customer/PaymentSlipUploadPage";
+import CheckoutPage from "./pages/customer/CheckoutPage";
+import PaymentSuccessPage from "./pages/customer/PaymentSuccessPage";
+import PaymentCancelPage from "./pages/customer/PaymentCancelPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProductsPage from "./pages/admin/AdminProductsPage";
 import AdminProductCreatePage from "./pages/admin/AdminProductCreatePage";
@@ -30,6 +33,9 @@ function App() {
             <Route path="/products/:id" element={<CustomerProductDetail />} />
             <Route path="/profile" element={<CustomerProfilePage />} />
             <Route path="/payments/slip" element={<PaymentSlipUploadPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/payment/success" element={<PaymentSuccessPage />} />
+            <Route path="/payment/cancel" element={<PaymentCancelPage />} />
           </Route>
         </Route>
 

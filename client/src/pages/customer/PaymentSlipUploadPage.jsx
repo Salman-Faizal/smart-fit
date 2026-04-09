@@ -1,12 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 
 export default function PaymentSlipUploadPage() {
+  const [searchParams] = useSearchParams();
   const [orderId, setOrderId] = useState("");
   const [file, setFile] = useState(null);
   const [slipUrl, setSlipUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setOrderId(searchParams.get("orderId") || "");
+  }, [searchParams]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();

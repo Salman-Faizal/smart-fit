@@ -218,38 +218,11 @@ const checkoutOrder = async (userId, paymentMethod) => {
     return Order.findById(cart._id).populate("items.product");
   }
 
-  const session = await mongoose.startSession();
+  cart.paymentMethod = "PAYHERE";
+  cart.paymentStatus = "PENDING";
+  cart.status = "PENDING_PAYMENT";
+  await cart.save();
 
-  try {
-    await session.startTransaction();
-
-    for (const item of cart.items) {
-      const updatedProduct = await Product.findOneAndUpdate(
-        { _id: item.product, stock: { $gte: item.quantity } },
-        { $inc: { stock: -item.quantity } },
-        { new: true, session },
-      );
-
-      if (!updatedProduct) {
-        throw createHttpError(400, "Insufficient stock");
-      }
-    }
-
-    await updatePurchaseCounts(cart.items, 1, session);
-    await trackPurchasedProducts(cart.user, cart.items, session);
-
-    cart.paymentMethod = "PAYHERE";
-    cart.paymentStatus = "PAID";
-    cart.status = "PAID";
-    await cart.save({ session });
-
-    await session.commitTransaction();
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
-  }
   return Order.findById(cart._id).populate("items.product");
 };
 

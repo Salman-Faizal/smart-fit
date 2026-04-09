@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import logo from "../assets/monogram-logo.png";
+import logo from "../assets/logo-icon.png";
 
 const roleHome = (role) => (role === "admin" ? "/admin/dashboard" : "/home");
 
@@ -40,14 +40,10 @@ export default function SignIn() {
     <main className="min-h-screen flex justify-center items-center bg-grey-100">
       <section className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
         <div className="min-w-full flex justify-center items-center mb-8">
-          <img
-            src={logo}
-            alt="smartfit-logo"
-            className="w-24 rounded-full shadow-md"
-          />
+          <img src={logo} alt="smartfit-logo" className="w-24 rounded-full" />
         </div>
         <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">
-          Login to <span className="text-amber-600">Smart Fit</span>
+          SignIn to <span className="text-amber-600">Smart Fit</span>
         </h1>
 
         <form className="space-y-5" onSubmit={handleSubmit}>

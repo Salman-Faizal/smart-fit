@@ -10,6 +10,12 @@ export const assetUrl = (path) => {
   return `${root}${path}`;
 };
 
+const notifyCartChanged = () => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("cart:changed"));
+  }
+};
+
 const request = async (path, options = {}) => {
   const token = storage.getToken();
 
@@ -59,6 +65,43 @@ export const api = {
       body: formData,
     }),
   getPaymentSlip: (orderId) => request(`/payments/orders/${orderId}/slip`),
+  getCart: () => request("/orders/cart"),
+  addToCart: async (payload) => {
+    const data = await request("/orders/cart", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    notifyCartChanged();
+    return data;
+  },
+  updateCartItem: async (itemId, quantity) => {
+    const data = await request(`/orders/cart/${itemId}`, {
+      method: "PUT",
+      body: JSON.stringify({ quantity }),
+    });
+    notifyCartChanged();
+    return data;
+  },
+  removeCartItem: async (itemId) => {
+    const data = await request(`/orders/cart/${itemId}`, {
+      method: "DELETE",
+    });
+    notifyCartChanged();
+    return data;
+  },
+  checkoutOrder: async (paymentMethod) => {
+    const data = await request("/orders/checkout", {
+      method: "POST",
+      body: JSON.stringify({ paymentMethod }),
+    });
+    notifyCartChanged();
+    return data;
+  },
+  getMyOrders: () => request("/orders/my"),
+  createPayHereCheckout: (orderId) =>
+    request(`/payments/orders/${orderId}/payhere-checkout`, {
+      method: "POST",
+    }),
   getProducts: (params = {}) => {
     const query = new URLSearchParams(params);
     const queryString = query.toString();

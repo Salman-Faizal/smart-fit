@@ -1,0 +1,19 @@
+import { Link } from "react-router-dom";
+
+export default function PaymentCancelPage() {
+  return (
+    <section className="rounded-2xl bg-white p-6 shadow-sm">
+      <h2 className="text-2xl font-bold text-red-700">Payment Cancelled</h2>
+      <p className="mt-2 text-sm text-slate-600">
+        You cancelled or failed the PayHere payment. You can retry from
+        checkout.
+      </p>
+      <Link
+        to="/checkout"
+        className="mt-4 inline-block rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white"
+      >
+        Retry Checkout
+      </Link>
+    </section>
+  );
+}
