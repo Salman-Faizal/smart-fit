@@ -2,15 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 
-const PAYHERE_URL = "https://sandbox.payhere.lk/pay/checkout";
+const DEFAULT_PAYHERE_URL = "https://sandbox.payhere.lk/pay/checkout";
 
 const submitPayHereForm = (payload) => {
+  const checkoutUrl = payload?.checkout_url || DEFAULT_PAYHERE_URL;
   const form = document.createElement("form");
   form.method = "POST";
-  form.action = PAYHERE_URL;
+  form.action = checkoutUrl;
   form.style.display = "none";
 
   Object.entries(payload || {}).forEach(([key, value]) => {
+    if (key === "checkout_url") return;
     if (value === undefined || value === null) return;
     const input = document.createElement("input");
     input.type = "hidden";

@@ -14,6 +14,24 @@ const createHttpError = (statusCode, message) => {
 
 const formatAmount = (amount) => Number(amount || 0).toFixed(2);
 
+const buildCheckoutHash = ({
+  merchantId,
+  orderId,
+  amount,
+  currency,
+  merchantSecret,
+}) => {
+  const secretHash = crypto
+    .createHash("md5")
+    .update(String(merchantSecret || ""))
+    .digest("hex")
+    .toUpperCase();
+
+  const raw = `${merchantId}${orderId}${formatAmount(amount)}${currency}${secretHash}`;
+
+  return crypto.createHash("md5").update(raw).digest("hex").toUpperCase();
+};
+
 const buildPayHereHash = ({
   merchantId,
   orderId,
@@ -132,7 +150,11 @@ const getPaymentSlip = async (requestUser, orderId) => {
   return order;
 };
 
-const createPayHereCheckoutPayload = async (userId, orderId) => {
+const createPayHereCheckoutPayload = async (
+  userId,
+  orderId,
+  requestContext = {},
+) => {
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
     throw createHttpError(400, "Invalid order id");
   }
@@ -162,6 +184,7 @@ const createPayHereCheckoutPayload = async (userId, orderId) => {
     throw createHttpError(500, "PayHere environment is not configured");
   }
 
+  const isSandbox = process.env.PAYHERE_SANDBOX !== "false";
   const amount = formatAmount(order.totalPrice);
   const itemNames = order.items
     .map((item) => item?.product?.name)
@@ -171,17 +194,44 @@ const createPayHereCheckoutPayload = async (userId, orderId) => {
 
   const firstName =
     (order.user?.name || "Customer").split(" ")[0] || "Customer";
+  const normalizedOrigin =
+    typeof requestContext.requestOrigin === "string"
+      ? requestContext.requestOrigin.trim()
+      : "";
+  const normalizedHost =
+    typeof requestContext.requestHost === "string"
+      ? requestContext.requestHost.trim()
+      : "";
+  const normalizedProtocol =
+    requestContext.requestProtocol === "https" ? "https" : "http";
+  const backendBaseUrl = normalizedHost
+    ? `${normalizedProtocol}://${normalizedHost}`
+    : "";
+  const fallbackNotifyUrl = backendBaseUrl
+    ? `${backendBaseUrl}/api/payments/payhere-callback`
+    : "http://localhost:5000/api/payments/payhere-callback";
+  const fallbackReturnUrl = normalizedOrigin
+    ? `${normalizedOrigin}/payment/success`
+    : "http://localhost:5173/payment/success";
+  const fallbackCancelUrl = normalizedOrigin
+    ? `${normalizedOrigin}/payment/cancel`
+    : "http://localhost:5173/payment/cancel";
+  const checkoutHash = buildCheckoutHash({
+    merchantId,
+    orderId: String(order._id),
+    amount,
+    currency,
+    merchantSecret: process.env.PAYHERE_SECRET,
+  });
 
   return {
-    sandbox: true,
+    checkout_url: isSandbox
+      ? "https://sandbox.payhere.lk/pay/checkout"
+      : "https://www.payhere.lk/pay/checkout",
     merchant_id: merchantId,
-    return_url:
-      process.env.PAYHERE_RETURN_URL || "http://localhost:5173/payment/success",
-    cancel_url:
-      process.env.PAYHERE_CANCEL_URL || "http://localhost:5173/payment/cancel",
-    notify_url:
-      process.env.PAYHERE_NOTIFY_URL ||
-      "http://localhost:5000/api/payments/payhere-callback",
+    return_url: process.env.PAYHERE_RETURN_URL || fallbackReturnUrl,
+    cancel_url: process.env.PAYHERE_CANCEL_URL || fallbackCancelUrl,
+    notify_url: process.env.PAYHERE_NOTIFY_URL || fallbackNotifyUrl,
     order_id: String(order._id),
     items: itemNames || `Order ${order._id}`,
     currency,
@@ -195,6 +245,7 @@ const createPayHereCheckoutPayload = async (userId, orderId) => {
     country: "Sri Lanka",
     custom_1: String(order.user?._id || userId),
     custom_2: "",
+    hash: checkoutHash,
   };
 };
 

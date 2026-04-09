@@ -51,6 +51,11 @@ exports.createPayHereCheckout = async (req, res) => {
     const payload = await paymentService.createPayHereCheckoutPayload(
       req.user.id,
       orderId,
+      {
+        requestOrigin: req.get("origin"),
+        requestHost: req.get("host"),
+        requestProtocol: req.protocol,
+      },
     );
 
     return res.status(200).json({
