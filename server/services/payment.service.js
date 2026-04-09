@@ -209,7 +209,7 @@ const createPayHereCheckoutPayload = async (
     : "";
   const fallbackNotifyUrl = backendBaseUrl
     ? `${backendBaseUrl}/api/payments/payhere-callback`
-    : "http://localhost:5000/api/payments/payhere-callback";
+    : "http://localhost:3000/api/payments/payhere-callback";
   const fallbackReturnUrl = normalizedOrigin
     ? `${normalizedOrigin}/payment/success`
     : "http://localhost:5173/payment/success";
