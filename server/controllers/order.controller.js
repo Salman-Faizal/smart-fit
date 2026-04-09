@@ -91,6 +91,16 @@ exports.getOrdersByUser = async (req, res) => {
   }
 };
 
+exports.getOrderById = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await orderService.getUserOrderById(req.user.id, orderId);
+    return res.status(200).json({ order });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 exports.getAllOrders = async (req, res) => {
   try {
     const orders = await orderService.getAllOrders(req.query);

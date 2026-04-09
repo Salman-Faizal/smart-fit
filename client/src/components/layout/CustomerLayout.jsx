@@ -92,12 +92,6 @@ export default function CustomerLayout() {
             >
               Profile
             </NavLink>
-            <NavLink
-              to="/checkout"
-              className="text-sm font-medium text-slate-700 hover:text-amber-600"
-            >
-              Checkout
-            </NavLink>
           </nav>
 
           <div className="flex items-center gap-3">

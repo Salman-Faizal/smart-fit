@@ -65,6 +65,24 @@ exports.createStripeCheckoutSession = async (req, res) => {
   }
 };
 
+exports.cancelStripeCheckoutOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await paymentService.cancelStripeCheckoutOrder(
+      req.user.id,
+      orderId,
+    );
+
+    return res.status(200).json({
+      message: "Order cancelled",
+      order,
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 exports.handleStripeWebhook = async (req, res) => {
   try {
     const signature = req.headers["stripe-signature"];

@@ -215,7 +215,6 @@ const checkoutOrder = async (userId, paymentMethod) => {
 
   if (!["STRIPE", "MANUAL"].includes(normalizedPaymentMethod)) {
     throw createHttpError(400, "Invalid payment method");
-    throw createHttpError(400, "Invalid payment method");
   }
 
   const cart = await Order.findOne({ user: userId, status: "CART" });
@@ -232,21 +231,56 @@ const checkoutOrder = async (userId, paymentMethod) => {
     await validateStock(item.product, item.quantity);
   }
 
-  if (normalizedPaymentMethod === "MANUAL") {
-    cart.paymentMethod = "MANUAL";
-    cart.paymentStatus = "PENDING";
-    cart.status = "PENDING_PAYMENT";
-    await cart.save();
+  const checkoutOrderDoc = await Order.create({
+    user: userId,
+    items: cart.items.map((item) => ({
+      product: item.product,
+      quantity: item.quantity,
+      price: item.price,
+    })),
+    totalPrice: cart.totalPrice,
+    status: "PENDING_PAYMENT",
+    paymentMethod: normalizedPaymentMethod,
+    paymentStatus: "PENDING",
+  });
 
-    return Order.findById(cart._id).populate("items.product");
+  return Order.findById(checkoutOrderDoc._id).populate("items.product");
+};
+
+const getUserOrderById = async (userId, orderId) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    throw createHttpError(400, "Invalid order id");
   }
 
-  cart.paymentMethod = "STRIPE";
-  cart.paymentStatus = "PENDING";
-  cart.status = "PENDING_PAYMENT";
-  await cart.save();
+  const order = await Order.findOne({
+    _id: orderId,
+    user: userId,
+    status: { $ne: "CART" },
+  }).populate("items.product");
 
-  return Order.findById(cart._id).populate("items.product");
+  if (!order) {
+    throw createHttpError(404, "Order not found");
+  }
+
+  return order;
+};
+
+const clearCart = async (userId, session = null) => {
+  const cart = await Order.findOne({ user: userId, status: "CART" }).session(
+    session,
+  );
+
+  if (!cart) {
+    return null;
+  }
+
+  cart.items = [];
+  cart.totalPrice = 0;
+  cart.paymentMethod = undefined;
+  cart.paymentStatus = "PENDING";
+  await cart.save({ session });
+
+  return cart;
 };
 
 const getUserOrders = async (userId) => {
@@ -328,6 +362,7 @@ const updateOrderStatus = async (orderId, status) => {
 
       await updatePurchaseCounts(order.items, 1, session);
       await trackPurchasedProducts(order.user, order.items, session);
+      await clearCart(order.user, session);
 
       order.paymentStatus = "PAID";
     }
@@ -374,7 +409,9 @@ module.exports = {
   calculateTotalPrice,
   validateStock,
   checkoutOrder,
+  getUserOrderById,
   getUserOrders,
   getAllOrders,
   updateOrderStatus,
+  clearCart,
 };

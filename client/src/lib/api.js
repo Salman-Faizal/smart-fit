@@ -99,8 +99,13 @@ export const api = {
     return data;
   },
   getMyOrders: () => request("/orders/my"),
+  getOrderById: (orderId) => request(`/orders/${orderId}`),
   createStripeCheckoutSession: (orderId) =>
     request(`/payments/orders/${orderId}/stripe-checkout-session`, {
+      method: "POST",
+    }),
+  cancelStripeOrder: (orderId) =>
+    request(`/payments/orders/${orderId}/cancel`, {
       method: "POST",
     }),
   getProducts: (params = {}) => {

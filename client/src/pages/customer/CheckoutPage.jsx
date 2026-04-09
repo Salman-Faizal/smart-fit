@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 
 export default function CheckoutPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [cart, setCart] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("STRIPE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [manualOrderId, setManualOrderId] = useState("");
+  const [manualSlipFile, setManualSlipFile] = useState(null);
+  const [uploadingSlip, setUploadingSlip] = useState(false);
 
   const loadData = async () => {
     try {
@@ -23,6 +26,52 @@ export default function CheckoutPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    const orderId = searchParams.get("order_id");
+    const paymentState = searchParams.get("payment");
+
+    if (!orderId || !paymentState) {
+      return;
+    }
+
+    const syncPaymentState = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        setMessage("");
+
+        if (paymentState === "cancel") {
+          await api.cancelStripeOrder(orderId);
+          setMessage(
+            "Payment was cancelled. Your order was cancelled, and your cart is unchanged so you can retry anytime.",
+          );
+        } else if (paymentState === "success") {
+          const { order } = await api.getOrderById(orderId);
+          if (order.paymentStatus === "PAID" || order.status === "PAID") {
+            setMessage("Payment completed successfully.");
+            await loadData();
+          } else {
+            setMessage(
+              "Payment was submitted. We are verifying it now. Please refresh in a moment if status is still pending.",
+            );
+          }
+        } else if (paymentState === "failed") {
+          await api.cancelStripeOrder(orderId);
+          setError(
+            "Payment failed. The order is cancelled and your cart is unchanged.",
+          );
+        }
+      } catch (err) {
+        setError(err.message || "Failed to verify payment status");
+      } finally {
+        setSearchParams({}, { replace: true });
+        setLoading(false);
+      }
+    };
+
+    syncPaymentState();
+  }, [searchParams, setSearchParams]);
 
   const cartTotal = useMemo(
     () => Number(cart?.totalPrice || 0).toFixed(2),
@@ -58,6 +107,7 @@ export default function CheckoutPage() {
       setError("");
       setMessage("");
       setManualOrderId("");
+      setManualSlipFile(null);
 
       const checkoutData = await api.checkoutOrder(paymentMethod);
       const order = checkoutData.order;
@@ -74,12 +124,34 @@ export default function CheckoutPage() {
       }
 
       setManualOrderId(order._id);
-      setMessage("Manual order placed. Upload your payment slip to continue.");
-      await loadData();
+      setMessage("Order created. Upload your payment slip below.");
     } catch (err) {
       setError(err.message || "Checkout failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUploadManualSlip = async () => {
+    if (!manualOrderId || !manualSlipFile) {
+      setError("Please choose a payment slip file before uploading.");
+      return;
+    }
+
+    try {
+      setUploadingSlip(true);
+      setError("");
+      const formData = new FormData();
+      formData.append("paymentSlip", manualSlipFile);
+      await api.uploadPaymentSlip(manualOrderId, formData);
+      setMessage(
+        "Payment slip uploaded successfully. We will review and confirm your payment.",
+      );
+      setManualSlipFile(null);
+    } catch (err) {
+      setError(err.message || "Failed to upload payment slip");
+    } finally {
+      setUploadingSlip(false);
     }
   };
 
@@ -99,14 +171,6 @@ export default function CheckoutPage() {
       {message ? (
         <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
           <p>{message}</p>
-          {manualOrderId ? (
-            <Link
-              to={`/payments/slip?orderId=${manualOrderId}`}
-              className="mt-2 inline-block font-semibold underline"
-            >
-              Upload manual payment slip
-            </Link>
-          ) : null}
         </div>
       ) : null}
 
@@ -209,6 +273,33 @@ export default function CheckoutPage() {
             >
               {loading ? "Processing..." : "Place Order"}
             </button>
+
+            {manualOrderId ? (
+              <div className="mt-4 space-y-3 rounded-lg border border-slate-200 p-3">
+                <p className="text-xs text-slate-600">
+                  Manual order ID: {manualOrderId}
+                </p>
+                <label className="block text-sm font-medium text-slate-700">
+                  Payment slip
+                  <input
+                    type="file"
+                    accept="image/*,.pdf,application/pdf"
+                    onChange={(event) =>
+                      setManualSlipFile(event.target.files?.[0] || null)
+                    }
+                    className="mt-2 block w-full rounded-lg border border-slate-300 p-2 text-sm"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleUploadManualSlip}
+                  disabled={uploadingSlip}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+                >
+                  {uploadingSlip ? "Uploading..." : "Upload Slip"}
+                </button>
+              </div>
+            ) : null}
           </>
         )}
       </article>

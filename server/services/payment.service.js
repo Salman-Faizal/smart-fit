@@ -5,6 +5,7 @@ const Product = require("../models/Product");
 const User = require("../models/User");
 const { appendUniqueWithLimit } = require("./userTracking.service");
 const { destroyCloudinaryAsset } = require("../utils/cloudinaryAsset");
+const { clearCart } = require("./order.service");
 
 const createHttpError = (statusCode, message) => {
   const error = new Error(message);
@@ -203,11 +204,11 @@ const createStripeCheckoutSession = async (
       ? requestContext.requestOrigin.trim()
       : "";
   const successUrl = normalizedOrigin
-    ? `${normalizedOrigin}/payment/success?order_id=${order._id}`
-    : `http://localhost:5173/payment/success?order_id=${order._id}`;
+    ? `${normalizedOrigin}/checkout?payment=success&order_id=${order._id}`
+    : `http://localhost:5173/checkout?payment=success&order_id=${order._id}`;
   const cancelUrl = normalizedOrigin
-    ? `${normalizedOrigin}/payment/cancel?order_id=${order._id}`
-    : `http://localhost:5173/payment/cancel?order_id=${order._id}`;
+    ? `${normalizedOrigin}/checkout?payment=cancel&order_id=${order._id}`
+    : `http://localhost:5173/checkout?payment=cancel&order_id=${order._id}`;
 
   const payload = {
     mode: "payment",
@@ -281,6 +282,7 @@ const applyStripePaymentOutcome = async (order, payload, isSuccess) => {
 
       order.paymentStatus = "PAID";
       order.status = "PAID";
+      await clearCart(order.user, session);
     } else {
       order.paymentStatus = "FAILED";
       order.status = "CANCELLED";
@@ -301,6 +303,39 @@ const applyStripePaymentOutcome = async (order, payload, isSuccess) => {
   } finally {
     session.endSession();
   }
+
+  return Order.findById(order._id).populate("items.product");
+};
+
+const cancelStripeCheckoutOrder = async (userId, orderId) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    throw createHttpError(400, "Invalid order id");
+  }
+
+  const order = await Order.findOne({
+    _id: orderId,
+    user: userId,
+  }).populate("items.product");
+
+  if (!order) {
+    throw createHttpError(404, "Order not found");
+  }
+
+  const normalizedPaymentMethod =
+    order.paymentMethod === "PAYHERE" ? "STRIPE" : order.paymentMethod;
+
+  if (normalizedPaymentMethod !== "STRIPE") {
+    throw createHttpError(400, "Order is not a Stripe order");
+  }
+
+  if (order.paymentStatus === "PAID" || order.status === "PAID") {
+    return order;
+  }
+
+  order.paymentStatus = "FAILED";
+  order.status = "CANCELLED";
+  order.paymentVerifiedAt = new Date();
+  await order.save();
 
   return Order.findById(order._id).populate("items.product");
 };
@@ -381,4 +416,5 @@ module.exports = {
   createStripeCheckoutSession,
   verifyStripeWebhookEvent,
   handleStripeWebhookEvent,
+  cancelStripeCheckoutOrder,
 };

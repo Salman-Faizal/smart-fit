@@ -26,4 +26,10 @@ router.post(
   paymentController.createStripeCheckoutSession,
 );
 
+router.post(
+  "/payments/orders/:orderId/cancel",
+  protect,
+  paymentController.cancelStripeCheckoutOrder,
+);
+
 module.exports = router;

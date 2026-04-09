@@ -9,6 +9,7 @@ router.put("/orders/cart/:itemId", protect, orderController.updateCartItem);
 router.delete("/orders/cart/:itemId", protect, orderController.removeCartItem);
 router.post("/orders/checkout", protect, orderController.checkoutOrder);
 router.get("/orders/my", protect, orderController.getOrdersByUser);
+router.get("/orders/:orderId", protect, orderController.getOrderById);
 
 router.get(
   "/admin/orders",
