@@ -25,7 +25,9 @@ export default function AdminProductCreatePage() {
     <section className="space-y-4">
       <h2 className="text-2xl font-bold text-slate-900">Add Product</h2>
       {error ? (
-        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</p>
+        <p className="rounded-lg bg-red-100 p-3 text-sm text-red-600">
+          {error}
+        </p>
       ) : null}
       <ProductForm
         submitLabel="Create Product"
