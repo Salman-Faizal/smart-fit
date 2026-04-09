@@ -13,6 +13,33 @@ const createHttpError = (statusCode, message) => {
   return error;
 };
 
+const normalizeUrl = (value = "") =>
+  String(value || "")
+    .trim()
+    .replace(/\/+$/, "");
+
+const buildCheckoutPageUrl = (baseUrl, paymentState, orderId) => {
+  const checkoutUrl = new URL("/checkout", normalizeUrl(baseUrl));
+  checkoutUrl.searchParams.set("payment", paymentState);
+  checkoutUrl.searchParams.set("order_id", String(orderId));
+  return checkoutUrl.toString();
+};
+
+const resolveClientUrl = ({ requestOrigin } = {}) => {
+  const explicitClientUrl = normalizeUrl(process.env.CLIENT_URL);
+
+  if (explicitClientUrl) {
+    return explicitClientUrl;
+  }
+
+  const origin = normalizeUrl(requestOrigin);
+  if (origin) {
+    return origin;
+  }
+
+  return "http://localhost:5173";
+};
+
 const getStripeSecretKey = () => {
   const secretKey = process.env.STRIPE_SECRET_KEY;
 
@@ -46,6 +73,10 @@ const stripeFormEncode = (payload = {}) => {
 
 const createStripeCheckoutSessionRequest = async (payload) => {
   const secretKey = getStripeSecretKey();
+  console.info("[Stripe] Creating checkout session", {
+    orderId: payload["metadata[orderId]"],
+    customerEmail: payload.customer_email || null,
+  });
   const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
     method: "POST",
     headers: {
@@ -60,6 +91,13 @@ const createStripeCheckoutSessionRequest = async (payload) => {
   if (!response.ok) {
     const message =
       data?.error?.message || "Failed to create Stripe checkout session";
+    console.error("[Stripe] Session creation failed", {
+      status: response.status,
+      code: data?.error?.code,
+      type: data?.error?.type,
+      message,
+      orderId: payload["metadata[orderId]"],
+    });
     throw createHttpError(response.status || 500, message);
   }
 
@@ -185,8 +223,7 @@ const createStripeCheckoutSession = async (
     throw createHttpError(404, "Order not found");
   }
 
-  const normalizedPaymentMethod =
-    order.paymentMethod === "PAYHERE" ? "STRIPE" : order.paymentMethod;
+  const normalizedPaymentMethod = order.paymentMethod;
 
   if (
     order.status !== "PENDING_PAYMENT" ||
@@ -199,25 +236,31 @@ const createStripeCheckoutSession = async (
   }
 
   const currency = (process.env.STRIPE_CURRENCY || "usd").toLowerCase();
-  const normalizedOrigin =
-    typeof requestContext.requestOrigin === "string"
-      ? requestContext.requestOrigin.trim()
-      : "";
-  const successUrl = normalizedOrigin
-    ? `${normalizedOrigin}/checkout?payment=success&order_id=${order._id}`
-    : `http://localhost:5173/checkout?payment=success&order_id=${order._id}`;
-  const cancelUrl = normalizedOrigin
-    ? `${normalizedOrigin}/checkout?payment=cancel&order_id=${order._id}`
-    : `http://localhost:5173/checkout?payment=cancel&order_id=${order._id}`;
+  const clientUrl = resolveClientUrl(requestContext);
+  const successUrl = buildCheckoutPageUrl(clientUrl, "success", order._id);
+  const cancelUrl = buildCheckoutPageUrl(clientUrl, "cancel", order._id);
+
+  if (!process.env.CLIENT_URL) {
+    console.warn(
+      "[Stripe] CLIENT_URL is not configured. Falling back to request origin.",
+      {
+        requestOrigin: requestContext.requestOrigin || null,
+        resolvedClientUrl: clientUrl,
+      },
+    );
+  }
 
   const payload = {
     mode: "payment",
     customer_email: order.user?.email || "",
-    success_url: process.env.STRIPE_SUCCESS_URL || successUrl,
-    cancel_url: process.env.STRIPE_CANCEL_URL || cancelUrl,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
     "metadata[orderId]": String(order._id),
     "metadata[userId]": String(order.user?._id || userId),
+    "metadata[source]": "smart-fit-checkout",
     "payment_intent_data[metadata][orderId]": String(order._id),
+    "payment_intent_data[metadata][source]": "smart-fit-checkout",
+    "payment_intent_data[description]": `Smart Fit order ${String(order._id)}`,
   };
   order.items.forEach((item, index) => {
     payload[`line_items[${index}][quantity]`] = Number(item.quantity);
@@ -225,8 +268,10 @@ const createStripeCheckoutSession = async (
     payload[`line_items[${index}][price_data][unit_amount]`] = toStripeAmount(
       item.price,
     );
-    payload[`line_items[${index}][price_data][product_data][name]`] =
-      item?.product?.name || "Smart Fit Product";
+    payload[`line_items[${index}][price_data][product_data][name]`] = item
+      ?.product?.name
+      ? `Smart Fit • ${item.product.name}`
+      : "Smart Fit Product";
   });
 
   const session = await createStripeCheckoutSessionRequest(payload);
@@ -243,8 +288,7 @@ const createStripeCheckoutSession = async (
 };
 
 const applyStripePaymentOutcome = async (order, payload, isSuccess) => {
-  const normalizedPaymentMethod =
-    order.paymentMethod === "PAYHERE" ? "STRIPE" : order.paymentMethod;
+  const normalizedPaymentMethod = order.paymentMethod;
   if (normalizedPaymentMethod !== "STRIPE") {
     throw createHttpError(400, "Order is not a Stripe order");
   }
@@ -321,9 +365,7 @@ const cancelStripeCheckoutOrder = async (userId, orderId) => {
     throw createHttpError(404, "Order not found");
   }
 
-  const normalizedPaymentMethod =
-    order.paymentMethod === "PAYHERE" ? "STRIPE" : order.paymentMethod;
-
+  const normalizedPaymentMethod = order.paymentMethod;
   if (normalizedPaymentMethod !== "STRIPE") {
     throw createHttpError(400, "Order is not a Stripe order");
   }

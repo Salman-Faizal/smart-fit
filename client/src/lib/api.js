@@ -1,8 +1,16 @@
 import { storage } from "./storage";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://smart-fit-cnax.onrender.com";
+const DEFAULT_API_BASE_URL = "https://smart-fit-cnax.onrender.com";
+const RAW_API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL;
 
+const normalizeApiBaseUrl = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/api$/i, "");
+
+export const API_BASE_URL = normalizeApiBaseUrl(RAW_API_BASE_URL);
 export const API = `${API_BASE_URL}/api`;
 
 export const assetUrl = (path) => {
@@ -31,17 +39,25 @@ const request = async (path, options = {}) => {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API}${path}`, {
-    ...options,
-    headers,
-  });
+  const endpoint = `${API}${path}`;
+  const response = await fetch(endpoint, { ...options, headers });
 
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const error = new Error(data.message || "Request failed");
+    const detailedMessage =
+      data.message || data.error || data.details || "Request failed";
+    const error = new Error(detailedMessage);
     error.status = response.status;
     error.payload = data;
+    error.endpoint = endpoint;
+    if (import.meta.env.DEV) {
+      console.error("[API] request failed", {
+        endpoint,
+        status: response.status,
+        payload: data,
+      });
+    }
     throw error;
   }
 

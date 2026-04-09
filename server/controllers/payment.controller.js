@@ -2,6 +2,18 @@ const paymentService = require("../services/payment.service");
 
 const handleError = (res, error) => {
   const statusCode = error.statusCode || 500;
+  if (statusCode >= 500) {
+    console.error("[Payment] request failed", {
+      statusCode,
+      message: error.message,
+      stack: error.stack,
+    });
+  } else {
+    console.warn("[Payment] request rejected", {
+      statusCode,
+      message: error.message,
+    });
+  }
   return res
     .status(statusCode)
     .json({ message: error.message || "Failed to process payment request" });

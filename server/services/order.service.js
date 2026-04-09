@@ -59,11 +59,7 @@ const normalizePaymentMethod = (paymentMethod) => {
     .trim()
     .toUpperCase();
 
-  if (
-    ["STRIPE", "PAYHERE", "ONLINE", "ONLINE_PAYMENT", "CARD"].includes(
-      normalized,
-    )
-  ) {
+  if (["STRIPE", "ONLINE", "ONLINE_PAYMENT", "CARD"].includes(normalized)) {
     return "STRIPE";
   }
 
