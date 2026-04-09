@@ -12,43 +12,57 @@ const createHttpError = (statusCode, message) => {
   return error;
 };
 
-const formatAmount = (amount) => Number(amount || 0).toFixed(2);
+const getStripeSecretKey = () => {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
 
-const buildCheckoutHash = ({
-  merchantId,
-  orderId,
-  amount,
-  currency,
-  merchantSecret,
-}) => {
-  const secretHash = crypto
-    .createHash("md5")
-    .update(String(merchantSecret || ""))
-    .digest("hex")
-    .toUpperCase();
+  if (!secretKey) {
+    throw createHttpError(500, "Stripe is not configured");
+  }
 
-  const raw = `${merchantId}${orderId}${formatAmount(amount)}${currency}${secretHash}`;
-
-  return crypto.createHash("md5").update(raw).digest("hex").toUpperCase();
+  return secretKey;
 };
 
-const buildPayHereHash = ({
-  merchantId,
-  orderId,
-  amount,
-  currency,
-  statusCode,
-  merchantSecret,
-}) => {
-  const secretHash = crypto
-    .createHash("md5")
-    .update(String(merchantSecret || ""))
-    .digest("hex")
-    .toUpperCase();
+const toStripeAmount = (amount) => {
+  const parsed = Number(amount || 0);
 
-  const raw = `${merchantId}${orderId}${formatAmount(amount)}${currency}${statusCode}${secretHash}`;
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw createHttpError(400, "Invalid order amount for Stripe checkout");
+  }
 
-  return crypto.createHash("md5").update(raw).digest("hex").toUpperCase();
+  return Math.round(parsed * 100);
+};
+
+const stripeFormEncode = (payload = {}) => {
+  const params = new URLSearchParams();
+
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    params.append(key, String(value));
+  });
+
+  return params;
+};
+
+const createStripeCheckoutSessionRequest = async (payload) => {
+  const secretKey = getStripeSecretKey();
+  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${secretKey}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: stripeFormEncode(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message =
+      data?.error?.message || "Failed to create Stripe checkout session";
+    throw createHttpError(response.status || 500, message);
+  }
+
+  return data;
 };
 
 const updatePurchaseCounts = async (items, delta, session) => {
@@ -150,7 +164,7 @@ const getPaymentSlip = async (requestUser, orderId) => {
   return order;
 };
 
-const createPayHereCheckoutPayload = async (
+const createStripeCheckoutSession = async (
   userId,
   orderId,
   requestContext = {},
@@ -170,145 +184,75 @@ const createPayHereCheckoutPayload = async (
     throw createHttpError(404, "Order not found");
   }
 
-  if (order.status !== "PENDING_PAYMENT" || order.paymentMethod !== "PAYHERE") {
+  const normalizedPaymentMethod =
+    order.paymentMethod === "PAYHERE" ? "STRIPE" : order.paymentMethod;
+
+  if (
+    order.status !== "PENDING_PAYMENT" ||
+    normalizedPaymentMethod !== "STRIPE"
+  ) {
     throw createHttpError(
       400,
-      "Order is not ready for PayHere checkout. Please checkout with PayHere first.",
+      "Order is not ready for Stripe checkout. Please checkout with Stripe first.",
     );
   }
 
-  const merchantId = process.env.PAYHERE_MERCHANT_ID;
-  const currency = process.env.PAYHERE_CURRENCY || "LKR";
-
-  if (!merchantId || !process.env.PAYHERE_SECRET) {
-    throw createHttpError(500, "PayHere environment is not configured");
-  }
-
-  const isSandbox = process.env.PAYHERE_SANDBOX !== "false";
-  const amount = formatAmount(order.totalPrice);
-  const itemNames = order.items
-    .map((item) => item?.product?.name)
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(", ");
-
-  const firstName =
-    (order.user?.name || "Customer").split(" ")[0] || "Customer";
+  const currency = (process.env.STRIPE_CURRENCY || "usd").toLowerCase();
   const normalizedOrigin =
     typeof requestContext.requestOrigin === "string"
       ? requestContext.requestOrigin.trim()
       : "";
-  const normalizedHost =
-    typeof requestContext.requestHost === "string"
-      ? requestContext.requestHost.trim()
-      : "";
-  const normalizedProtocol =
-    requestContext.requestProtocol === "https" ? "https" : "http";
-  const backendBaseUrl = normalizedHost
-    ? `${normalizedProtocol}://${normalizedHost}`
-    : "";
-  const fallbackNotifyUrl = backendBaseUrl
-    ? `${backendBaseUrl}/api/payments/payhere-callback`
-    : "http://localhost:3000/api/payments/payhere-callback";
-  const fallbackReturnUrl = normalizedOrigin
-    ? `${normalizedOrigin}/payment/success`
-    : "http://localhost:5173/payment/success";
-  const fallbackCancelUrl = normalizedOrigin
-    ? `${normalizedOrigin}/payment/cancel`
-    : "http://localhost:5173/payment/cancel";
-  const checkoutHash = buildCheckoutHash({
-    merchantId,
-    orderId: String(order._id),
-    amount,
-    currency,
-    merchantSecret: process.env.PAYHERE_SECRET,
+  const successUrl = normalizedOrigin
+    ? `${normalizedOrigin}/payment/success?order_id=${order._id}`
+    : `http://localhost:5173/payment/success?order_id=${order._id}`;
+  const cancelUrl = normalizedOrigin
+    ? `${normalizedOrigin}/payment/cancel?order_id=${order._id}`
+    : `http://localhost:5173/payment/cancel?order_id=${order._id}`;
+
+  const payload = {
+    mode: "payment",
+    customer_email: order.user?.email || "",
+    success_url: process.env.STRIPE_SUCCESS_URL || successUrl,
+    cancel_url: process.env.STRIPE_CANCEL_URL || cancelUrl,
+    "metadata[orderId]": String(order._id),
+    "metadata[userId]": String(order.user?._id || userId),
+    "payment_intent_data[metadata][orderId]": String(order._id),
+  };
+  order.items.forEach((item, index) => {
+    payload[`line_items[${index}][quantity]`] = Number(item.quantity);
+    payload[`line_items[${index}][price_data][currency]`] = currency;
+    payload[`line_items[${index}][price_data][unit_amount]`] = toStripeAmount(
+      item.price,
+    );
+    payload[`line_items[${index}][price_data][product_data][name]`] =
+      item?.product?.name || "Smart Fit Product";
   });
 
+  const session = await createStripeCheckoutSessionRequest(payload);
+
+  order.paymentMethod = "STRIPE";
+  order.paymentReference = session.id;
+  order.paymentGateway = "STRIPE";
+  await order.save();
+
   return {
-    checkout_url: isSandbox
-      ? "https://sandbox.payhere.lk/pay/checkout"
-      : "https://www.payhere.lk/pay/checkout",
-    merchant_id: merchantId,
-    return_url: process.env.PAYHERE_RETURN_URL || fallbackReturnUrl,
-    cancel_url: process.env.PAYHERE_CANCEL_URL || fallbackCancelUrl,
-    notify_url: process.env.PAYHERE_NOTIFY_URL || fallbackNotifyUrl,
-    order_id: String(order._id),
-    items: itemNames || `Order ${order._id}`,
-    currency,
-    amount,
-    first_name: firstName,
-    last_name: "",
-    email: order.user?.email || "customer@example.com",
-    phone: "0771234567",
-    address: "N/A",
-    city: "Colombo",
-    country: "Sri Lanka",
-    custom_1: String(order.user?._id || userId),
-    custom_2: "",
-    hash: checkoutHash,
+    sessionId: session.id,
+    checkoutUrl: session.url || "",
   };
 };
 
-const verifyPayHereCallback = (payload) => {
-  const merchantId = process.env.PAYHERE_MERCHANT_ID;
-  const merchantSecret = process.env.PAYHERE_SECRET;
-
-  if (!merchantId || !merchantSecret) {
-    throw createHttpError(500, "PayHere environment is not configured");
+const applyStripePaymentOutcome = async (order, payload, isSuccess) => {
+  const normalizedPaymentMethod =
+    order.paymentMethod === "PAYHERE" ? "STRIPE" : order.paymentMethod;
+  if (normalizedPaymentMethod !== "STRIPE") {
+    throw createHttpError(400, "Order is not a Stripe order");
   }
-
-  if (!payload?.md5sig) {
-    throw createHttpError(400, "Missing md5 signature");
-  }
-
-  const expectedSig = buildPayHereHash({
-    merchantId: payload.merchant_id,
-    orderId: payload.order_id,
-    amount: payload.payhere_amount,
-    currency: payload.payhere_currency,
-    statusCode: payload.status_code,
-    merchantSecret,
-  });
-
-  return expectedSig === String(payload.md5sig || "").toUpperCase();
-};
-
-const handlePayHereCallback = async (payload = {}) => {
-  if (!payload.order_id || !mongoose.Types.ObjectId.isValid(payload.order_id)) {
-    throw createHttpError(400, "Invalid order reference");
-  }
-
-  const isValid = verifyPayHereCallback(payload);
-
-  if (!isValid) {
-    console.error("[PayHere] Invalid signature for callback", {
-      order_id: payload.order_id,
-      payment_id: payload.payment_id,
-    });
-    throw createHttpError(400, "Invalid callback signature");
-  }
-
-  const order = await Order.findById(payload.order_id).populate(
-    "items.product",
-  );
-
-  if (!order) {
-    throw createHttpError(404, "Order not found");
-  }
-
-  if (order.paymentMethod !== "PAYHERE") {
-    throw createHttpError(400, "Order is not a PayHere order");
-  }
-
-  const statusCode = String(payload.status_code || "");
-  const isSuccess = statusCode === "2";
 
   if (order.paymentStatus === "PAID" && isSuccess) {
     order.paymentCallbackRaw = payload;
-    order.paymentCallbackStatusCode = statusCode;
-    order.paymentTransactionId = String(payload.payment_id || "");
-    order.paymentReference = String(payload.order_id || "");
-    order.paymentGateway = "PAYHERE";
+    order.paymentTransactionId = String(payload.payment_intent || "");
+    order.paymentReference = String(payload.id || order.paymentReference || "");
+    order.paymentGateway = "STRIPE";
     order.paymentVerifiedAt = order.paymentVerifiedAt || new Date();
     await order.save();
     return order;
@@ -343,10 +287,9 @@ const handlePayHereCallback = async (payload = {}) => {
     }
 
     order.paymentCallbackRaw = payload;
-    order.paymentCallbackStatusCode = statusCode;
-    order.paymentTransactionId = String(payload.payment_id || "");
-    order.paymentReference = String(payload.order_id || "");
-    order.paymentGateway = "PAYHERE";
+    order.paymentTransactionId = String(payload.payment_intent || "");
+    order.paymentReference = String(payload.id || order.paymentReference || "");
+    order.paymentGateway = "STRIPE";
     order.paymentVerifiedAt = new Date();
 
     await order.save({ session });
@@ -362,9 +305,80 @@ const handlePayHereCallback = async (payload = {}) => {
   return Order.findById(order._id).populate("items.product");
 };
 
+const handleStripeWebhookEvent = async (event = {}) => {
+  const eventType = String(event?.type || "");
+  const payload = event?.data?.object || {};
+  const orderId = payload?.metadata?.orderId;
+
+  if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+    throw createHttpError(400, "Invalid order reference");
+  }
+
+  const order = await Order.findById(orderId).populate("items.product");
+
+  if (!order) {
+    throw createHttpError(404, "Order not found");
+  }
+
+  if (eventType === "checkout.session.completed") {
+    return applyStripePaymentOutcome(order, payload, true);
+  }
+
+  if (eventType === "checkout.session.expired") {
+    return applyStripePaymentOutcome(order, payload, false);
+  }
+
+  return order;
+};
+
+const verifyStripeWebhookEvent = (signature, rawBodyBuffer) => {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    throw createHttpError(500, "Stripe webhook is not configured");
+  }
+
+  if (!signature || typeof signature !== "string") {
+    throw createHttpError(400, "Missing stripe signature");
+  }
+
+  const values = signature
+    .split(",")
+    .map((part) => part.trim())
+    .reduce((acc, entry) => {
+      const [key, value] = entry.split("=");
+      if (key && value) acc[key] = value;
+      return acc;
+    }, {});
+
+  if (!values.t || !values.v1) {
+    throw createHttpError(400, "Invalid stripe signature header");
+  }
+
+  const bodyString = Buffer.isBuffer(rawBodyBuffer)
+    ? rawBodyBuffer.toString("utf8")
+    : String(rawBodyBuffer || "");
+  const signedPayload = `${values.t}.${bodyString}`;
+  const expected = crypto
+    .createHmac("sha256", webhookSecret)
+    .update(signedPayload)
+    .digest("hex");
+
+  if (expected !== values.v1) {
+    throw createHttpError(400, "Invalid Stripe webhook signature");
+  }
+
+  try {
+    return JSON.parse(bodyString);
+  } catch (_error) {
+    throw createHttpError(400, "Invalid Stripe webhook payload");
+  }
+};
+
 module.exports = {
   uploadPaymentSlip,
   getPaymentSlip,
-  createPayHereCheckoutPayload,
-  handlePayHereCallback,
+  createStripeCheckoutSession,
+  verifyStripeWebhookEvent,
+  handleStripeWebhookEvent,
 };

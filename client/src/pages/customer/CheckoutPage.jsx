@@ -2,32 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 
-const DEFAULT_PAYHERE_URL = "https://sandbox.payhere.lk/pay/checkout";
-
-const submitPayHereForm = (payload) => {
-  const checkoutUrl = payload?.checkout_url || DEFAULT_PAYHERE_URL;
-  const form = document.createElement("form");
-  form.method = "POST";
-  form.action = checkoutUrl;
-  form.style.display = "none";
-
-  Object.entries(payload || {}).forEach(([key, value]) => {
-    if (key === "checkout_url") return;
-    if (value === undefined || value === null) return;
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = key;
-    input.value = String(value);
-    form.appendChild(input);
-  });
-
-  document.body.appendChild(form);
-  form.submit();
-};
-
 export default function CheckoutPage() {
   const [cart, setCart] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState("PAYHERE");
+  const [paymentMethod, setPaymentMethod] = useState("STRIPE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -85,9 +62,14 @@ export default function CheckoutPage() {
       const checkoutData = await api.checkoutOrder(paymentMethod);
       const order = checkoutData.order;
 
-      if (paymentMethod === "PAYHERE") {
-        const payloadData = await api.createPayHereCheckout(order._id);
-        submitPayHereForm(payloadData.payload);
+      if (paymentMethod === "STRIPE") {
+        const sessionData = await api.createStripeCheckoutSession(order._id);
+
+        if (!sessionData.checkoutUrl) {
+          throw new Error("Stripe checkout URL is missing.");
+        }
+
+        window.location.assign(sessionData.checkoutUrl);
         return;
       }
 
@@ -200,11 +182,11 @@ export default function CheckoutPage() {
                 <input
                   type="radio"
                   name="paymentMethod"
-                  value="PAYHERE"
-                  checked={paymentMethod === "PAYHERE"}
-                  onChange={() => setPaymentMethod("PAYHERE")}
+                  value="STRIPE"
+                  checked={paymentMethod === "STRIPE"}
+                  onChange={() => setPaymentMethod("STRIPE")}
                 />
-                PayHere (Online)
+                Online Payment (Stripe)
               </label>
 
               <label className="flex items-center gap-2 text-sm text-slate-700">

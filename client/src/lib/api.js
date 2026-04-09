@@ -99,8 +99,8 @@ export const api = {
     return data;
   },
   getMyOrders: () => request("/orders/my"),
-  createPayHereCheckout: (orderId) =>
-    request(`/payments/orders/${orderId}/payhere-checkout`, {
+  createStripeCheckoutSession: (orderId) =>
+    request(`/payments/orders/${orderId}/stripe-checkout-session`, {
       method: "POST",
     }),
   getProducts: (params = {}) => {

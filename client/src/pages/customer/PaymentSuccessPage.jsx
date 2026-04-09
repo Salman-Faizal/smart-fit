@@ -8,8 +8,8 @@ export default function PaymentSuccessPage() {
     <section className="rounded-2xl bg-white p-6 shadow-sm">
       <h2 className="text-2xl font-bold text-green-700">Payment Submitted</h2>
       <p className="mt-2 text-sm text-slate-600">
-        PayHere redirected you successfully. Final payment status is confirmed
-        by backend callback.
+        Stripe redirected you successfully. Final payment status is confirmed by
+        backend webhook.
       </p>
       {orderId ? (
         <p className="mt-3 text-sm text-slate-700">Order ID: {orderId}</p>

@@ -1,6 +1,7 @@
 const express = require("express");
 const routes = require("./routes");
 const cors = require("cors");
+const paymentController = require("./controllers/payment.controller");
 
 const app = express();
 
@@ -39,6 +40,12 @@ app.use(
     },
     credentials: true,
   }),
+);
+
+app.post(
+  "/api/payments/stripe-webhook",
+  express.raw({ type: "application/json" }),
+  paymentController.handleStripeWebhook,
 );
 
 app.use(express.json());

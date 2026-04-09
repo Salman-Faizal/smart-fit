@@ -5,8 +5,7 @@ export default function PaymentCancelPage() {
     <section className="rounded-2xl bg-white p-6 shadow-sm">
       <h2 className="text-2xl font-bold text-red-700">Payment Cancelled</h2>
       <p className="mt-2 text-sm text-slate-600">
-        You cancelled or failed the PayHere payment. You can retry from
-        checkout.
+        You cancelled or failed the Stripe payment. You can retry from checkout.
       </p>
       <Link
         to="/checkout"

@@ -54,6 +54,26 @@ const trackPurchasedProducts = async (userId, items, session) => {
   await user.save({ session });
 };
 
+const normalizePaymentMethod = (paymentMethod) => {
+  const normalized = String(paymentMethod || "")
+    .trim()
+    .toUpperCase();
+
+  if (
+    ["STRIPE", "PAYHERE", "ONLINE", "ONLINE_PAYMENT", "CARD"].includes(
+      normalized,
+    )
+  ) {
+    return "STRIPE";
+  }
+
+  if (normalized === "MANUAL") {
+    return "MANUAL";
+  }
+
+  return "";
+};
+
 const validateStock = async (productId, quantity, session = null) => {
   if (!mongoose.Types.ObjectId.isValid(productId)) {
     throw createHttpError(400, "Invalid productId");
@@ -191,7 +211,10 @@ const removeCartItem = async (userId, itemId) => {
 };
 
 const checkoutOrder = async (userId, paymentMethod) => {
-  if (!["PAYHERE", "MANUAL"].includes(paymentMethod)) {
+  const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
+
+  if (!["STRIPE", "MANUAL"].includes(normalizedPaymentMethod)) {
+    throw createHttpError(400, "Invalid payment method");
     throw createHttpError(400, "Invalid payment method");
   }
 
@@ -209,7 +232,7 @@ const checkoutOrder = async (userId, paymentMethod) => {
     await validateStock(item.product, item.quantity);
   }
 
-  if (paymentMethod === "MANUAL") {
+  if (normalizedPaymentMethod === "MANUAL") {
     cart.paymentMethod = "MANUAL";
     cart.paymentStatus = "PENDING";
     cart.status = "PENDING_PAYMENT";
@@ -218,7 +241,7 @@ const checkoutOrder = async (userId, paymentMethod) => {
     return Order.findById(cart._id).populate("items.product");
   }
 
-  cart.paymentMethod = "PAYHERE";
+  cart.paymentMethod = "STRIPE";
   cart.paymentStatus = "PENDING";
   cart.status = "PENDING_PAYMENT";
   await cart.save();

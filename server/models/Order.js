@@ -56,7 +56,7 @@ const orderSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["PAYHERE", "MANUAL"],
+      enum: ["STRIPE", "MANUAL"],
     },
     paymentStatus: {
       type: String,

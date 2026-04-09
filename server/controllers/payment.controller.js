@@ -44,58 +44,49 @@ exports.getPaymentSlip = async (req, res) => {
   }
 };
 
-exports.createPayHereCheckout = async (req, res) => {
+exports.createStripeCheckoutSession = async (req, res) => {
   try {
     const { orderId } = req.params;
 
-    const payload = await paymentService.createPayHereCheckoutPayload(
+    const checkoutSession = await paymentService.createStripeCheckoutSession(
       req.user.id,
       orderId,
       {
         requestOrigin: req.get("origin"),
-        requestHost: req.get("host"),
-        requestProtocol: req.protocol,
       },
     );
 
     return res.status(200).json({
-      message: "PayHere checkout payload generated",
-      payload,
+      message: "Stripe checkout session generated",
+      ...checkoutSession,
     });
   } catch (error) {
     return handleError(res, error);
   }
 };
 
-exports.handlePayHereCallback = async (req, res) => {
+exports.handleStripeWebhook = async (req, res) => {
   try {
-    const order = await paymentService.handlePayHereCallback(req.body || {});
+    const signature = req.headers["stripe-signature"];
+
+    if (!signature) {
+      return res.status(400).json({ message: "Missing stripe signature" });
+    }
+
+    const event = paymentService.verifyStripeWebhookEvent(signature, req.body);
+    const order = await paymentService.handleStripeWebhookEvent(event);
 
     return res.status(200).json({
-      message: "Callback processed",
-      orderId: order._id,
-      paymentStatus: order.paymentStatus,
-      status: order.status,
+      message: "Webhook processed",
+      eventType: event.type,
+      orderId: order?._id,
+      paymentStatus: order?.paymentStatus,
+      status: order?.status,
     });
   } catch (error) {
-    console.error("[PayHere] callback processing failed", error.message);
+    console.error("[Stripe] webhook processing failed", error.message);
     return res.status(error.statusCode || 400).json({
-      message: error.message || "Invalid callback",
+      message: error.message || "Invalid webhook",
     });
   }
-};
-
-exports.payHereSuccess = async (req, res) => {
-  return res.status(200).json({
-    message:
-      "Payment success redirect received. Final status will be confirmed by notify callback.",
-    query: req.query,
-  });
-};
-
-exports.payHereCancel = async (req, res) => {
-  return res.status(200).json({
-    message: "Payment cancelled or failed by user.",
-    query: req.query,
-  });
 };

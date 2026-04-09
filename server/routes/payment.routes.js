@@ -21,16 +21,9 @@ router.get(
 );
 
 router.post(
-  "/payments/orders/:orderId/payhere-checkout",
+  "/payments/orders/:orderId/stripe-checkout-session",
   protect,
-  paymentController.createPayHereCheckout,
+  paymentController.createStripeCheckoutSession,
 );
-
-router.post(
-  "/payments/payhere-callback",
-  paymentController.handlePayHereCallback,
-);
-router.get("/payments/payhere/success", paymentController.payHereSuccess);
-router.get("/payments/payhere/cancel", paymentController.payHereCancel);
 
 module.exports = router;
