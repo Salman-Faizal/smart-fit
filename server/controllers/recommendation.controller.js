@@ -6,7 +6,7 @@ exports.getProductRecommendations = async (req, res) => {
       await recommendationService.getProductRecommendations({
         productId: req.params.productId,
         userId: req.user?.id,
-        limit: 5,
+        limit: 12,
       });
 
     return res.status(200).json({ recommendations });
@@ -23,8 +23,9 @@ exports.getTrendingRecommendations = async (req, res) => {
     const recommendations =
       await recommendationService.getTrendingRecommendations({
         category: req.query.category,
-        limit: 5,
+        limit: 12,
       });
+    console.log("TRENDING COUNT:", recommendations.length);
 
     return res.status(200).json({ recommendations });
   } catch (error) {
@@ -40,7 +41,7 @@ exports.getHybridAlsoViewedRecommendations = async (req, res) => {
       await recommendationService.getHybridAlsoViewedRecommendations({
         productId: req.params.productId,
         userId: req.user?.id,
-        limit: 5,
+        limit: 12,
       });
 
     return res.status(200).json({ recommendations });

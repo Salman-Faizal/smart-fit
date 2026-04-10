@@ -7,14 +7,17 @@ export default function RecommendationSection({
   products = [],
   emptyLabel,
 }) {
-  if (!products.length) {
-    return null;
-  }
+  if (!products.length) return null;
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 space-x-0">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+        {/* TITLE */}
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-600">
+          {title}
+        </h2>
+
+        {/* BADGE */}
         {badge ? (
           <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
             {badge}
@@ -22,25 +25,28 @@ export default function RecommendationSection({
         ) : null}
       </div>
 
+      {/* EMPTY LABEL */}
       {emptyLabel ? (
         <p className="text-sm text-slate-500">{emptyLabel}</p>
       ) : null}
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {/* PRODUCTS */}
+      <div className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory pb-2">
         {products.map((product) => (
-          <ProductCard
-            key={product._id}
-            product={product}
-            to={`/products/${product._id}`}
-            footer={
-              <Link
-                to={`/products/${product._id}`}
-                className="rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700"
-              >
-                View
-              </Link>
-            }
-          />
+          <div key={product._id} className="w-[220px] flex-shrink-0 snap-start">
+            <ProductCard
+              product={product}
+              to={`/products/${product._id}`}
+              footer={
+                <Link
+                  to={`/products/${product._id}`}
+                  className="rounded-full bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700"
+                >
+                  View
+                </Link>
+              }
+            />
+          </div>
         ))}
       </div>
     </section>

@@ -63,7 +63,7 @@ const getRecentContext = async (userId) => {
 
 const getTrendingRecommendations = async ({
   category,
-  limit = 5,
+  limit = 12,
   excludeProductId,
 } = {}) => {
   const query = {};
@@ -82,7 +82,7 @@ const getTrendingRecommendations = async ({
     .select(RECOMMENDATION_SELECT);
 };
 
-const getProductRecommendations = async ({ productId, userId, limit = 5 }) => {
+const getProductRecommendations = async ({ productId, userId, limit = 12 }) => {
   if (!mongoose.Types.ObjectId.isValid(productId)) {
     const error = new Error("Invalid product id");
     error.statusCode = 400;
@@ -149,7 +149,7 @@ const getProductRecommendations = async ({ productId, userId, limit = 5 }) => {
   return deduped;
 };
 
-const getAlsoViewedRecommendations = async (productId, limit = 5) => {
+const getAlsoViewedRecommendations = async (productId, limit = 12) => {
   if (!mongoose.Types.ObjectId.isValid(productId)) {
     const error = new Error("Invalid product id");
     error.statusCode = 400;
