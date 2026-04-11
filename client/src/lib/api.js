@@ -140,6 +140,20 @@ export const api = {
       `/products/recommendations/trending${queryString ? `?${queryString}` : ""}`,
     );
   },
+  getForYouRecommendations: (params = {}) => {
+    const query = new URLSearchParams(params);
+    const queryString = query.toString();
+    return request(
+      `/products/recommendations/for-you${queryString ? `?${queryString}` : ""}`,
+    );
+  },
+  getDiscoverRecommendations: (params = {}) => {
+    const query = new URLSearchParams(params);
+    const queryString = query.toString();
+    return request(
+      `/products/recommendations/discover${queryString ? `?${queryString}` : ""}`,
+    );
+  },
   getRecentlyViewed: () => request("/users/me/recently-viewed"),
   createProduct: (formData) =>
     request("/products", {

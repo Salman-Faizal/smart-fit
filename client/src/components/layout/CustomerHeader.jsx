@@ -98,8 +98,10 @@ export default function CustomerHeader({ cartCount = 0 }) {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (!search.trim()) return;
-    navigate(`/search?q=${encodeURIComponent(search)}`);
+    const normalized = search.trim();
+    navigate(
+      normalized ? `/search?q=${encodeURIComponent(normalized)}` : "/search",
+    );
   };
 
   return (

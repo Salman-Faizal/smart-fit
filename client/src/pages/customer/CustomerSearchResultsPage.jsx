@@ -16,7 +16,6 @@ export default function CustomerSearchResultsPage() {
   const initialCategory = searchParams.get("category") || "";
   const initialSort = searchParams.get("sort") || "";
 
-  const [searchInput, setSearchInput] = useState(initialQuery);
   const [query, setQuery] = useState(initialQuery);
   const [category, setCategory] = useState(initialCategory);
   const [sort, setSort] = useState(initialSort);
@@ -32,6 +31,17 @@ export default function CustomerSearchResultsPage() {
   const hasMore = products.length < total;
   const loaderRef = useRef(null);
 
+  useEffect(() => {
+    const nextQuery = searchParams.get("q") || "";
+    const nextCategory = searchParams.get("category") || "";
+    const nextSort = searchParams.get("sort") || "";
+
+    setQuery(nextQuery);
+    setCategory(nextCategory);
+    setSort(nextSort);
+    setPage(1);
+  }, [searchParams]);
+
   const requestParams = useMemo(
     () => ({
       page,
@@ -42,14 +52,6 @@ export default function CustomerSearchResultsPage() {
     }),
     [page, query, category, sort],
   );
-
-  useEffect(() => {
-    const nextParams = new URLSearchParams();
-    if (query) nextParams.set("q", query);
-    if (category) nextParams.set("category", category);
-    if (sort) nextParams.set("sort", sort);
-    setSearchParams(nextParams, { replace: true });
-  }, [query, category, sort, setSearchParams]);
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -115,20 +117,22 @@ export default function CustomerSearchResultsPage() {
     return () => observer.disconnect();
   }, [hasMore, loading, loadingMore]);
 
-  const applySearch = (event) => {
-    event.preventDefault();
-    setPage(1);
-    setQuery(searchInput.trim());
+  const updateParams = ({ nextCategory = category, nextSort = sort }) => {
+    const nextParams = new URLSearchParams();
+
+    if (query) nextParams.set("q", query);
+    if (nextCategory) nextParams.set("category", nextCategory);
+    if (nextSort) nextParams.set("sort", nextSort);
+
+    setSearchParams(nextParams, { replace: true });
   };
 
   const onCategoryChange = (value) => {
-    setPage(1);
-    setCategory(value);
+    updateParams({ nextCategory: value });
   };
 
   const onSortChange = (value) => {
-    setPage(1);
-    setSort(value);
+    updateParams({ nextSort: value });
   };
 
   return (
@@ -136,62 +140,72 @@ export default function CustomerSearchResultsPage() {
       <header className="space-y-1">
         <h2 className="text-2xl font-bold text-slate-900">Search Results</h2>
         <p className="text-sm text-slate-500">
-          Find products by keyword, category, and sort preference.
+          Showing results for{" "}
+          <span className="font-semibold">“{query || "All products"}”</span>.
         </p>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-[2fr_1fr_1fr]">
-        <form onSubmit={applySearch}>
-          <input
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search..."
-            className="w-full rounded-full border px-4 py-3"
-          />
-        </form>
+      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm h-fit lg:sticky lg:top-28">
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+              Filters
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Refine by category and ranking preference.
+            </p>
+          </div>
 
-        <select
-          value={category}
-          onChange={(e) => onCategoryChange(e.target.value)}
-          className="rounded-full border px-4 py-3"
-        >
-          <option value="">All</option>
-          {categories.map((item) => (
-            <option key={item}>{item}</option>
-          ))}
-        </select>
+          <label className="block text-sm font-medium text-slate-700">
+            Category
+            <select
+              value={category}
+              onChange={(e) => onCategoryChange(e.target.value)}
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
+            >
+              <option value="">All categories</option>
+              {categories.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
+            </select>
+          </label>
 
-        <select
-          value={sort}
-          onChange={(e) => onSortChange(e.target.value)}
-          className="rounded-full border px-4 py-3"
-        >
-          <option value="">Newest</option>
-          <option value="price_asc">Price: Low to High</option>
-          <option value="price_desc">Price: High to Low</option>
-          <option value="views_desc">Most Viewed</option>
-        </select>
+          <label className="block text-sm font-medium text-slate-700">
+            Sort by
+            <select
+              value={sort}
+              onChange={(e) => onSortChange(e.target.value)}
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
+            >
+              <option value="">Newest</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+              <option value="views_desc">Most Viewed</option>
+            </select>
+          </label>
+        </aside>
+        <div className="space-y-5">
+          {loading && <LoadingState label="Loading products..." />}
+          {error && <ErrorState message={error} />}
+
+          {!loading && !error && !products.length ? (
+            <EmptyState message="No products found. Try another search." />
+          ) : null}
+
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {products.map((product) => (
+              <ProductCard
+                key={product._id}
+                product={product}
+                to={`/products/${product._id}`}
+              />
+            ))}
+          </div>
+
+          {loadingMore ? <LoadingState label="Loading more..." /> : null}
+          <div ref={loaderRef} className="h-10" />
+        </div>{" "}
       </div>
-
-      {loading && <LoadingState label="Loading products..." />}
-      {error && <ErrorState message={error} />}
-
-      {!loading && !error && !products.length ? (
-        <EmptyState message="No products found. Try another search." />
-      ) : null}
-
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {products.map((product) => (
-          <ProductCard
-            key={product._id}
-            product={product}
-            to={`/products/${product._id}`}
-          />
-        ))}
-      </div>
-
-      {loadingMore ? <LoadingState label="Loading more..." /> : null}
-      <div ref={loaderRef} className="h-10" />
     </section>
   );
 }

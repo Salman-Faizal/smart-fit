@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, assetUrl } from "../../lib/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -10,6 +10,8 @@ export default function CustomerProfilePage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
 
   const previewUrl = useMemo(() => {
     if (avatarFile) {
@@ -51,11 +53,29 @@ export default function CustomerProfilePage() {
     }
   };
 
+  useEffect(() => {
+    const loadOrders = async () => {
+      try {
+        setOrdersLoading(true);
+        const data = await api.getMyOrders();
+        setOrders(data.orders || []);
+      } catch {
+        setOrders([]);
+      } finally {
+        setOrdersLoading(false);
+      }
+    };
+
+    loadOrders();
+  }, []);
+
   return (
     <section className="space-y-6">
       <header>
         <h2 className="text-2xl font-bold text-slate-900">My Profile</h2>
-        <p className="text-sm text-slate-500">Update your avatar image.</p>
+        <p className="text-sm text-slate-500">
+          Manage your account and view order history.
+        </p>
       </header>
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
@@ -112,6 +132,42 @@ export default function CustomerProfilePage() {
             </button>
           </div>
         </form>
+      </div>
+
+      <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <h3 className="text-lg font-semibold text-slate-900">Order History</h3>
+        <p className="mt-1 text-sm text-slate-500">
+          Track your latest orders and payment status.
+        </p>
+
+        {ordersLoading ? (
+          <p className="mt-4 text-sm text-slate-500">Loading orders...</p>
+        ) : !orders.length ? (
+          <p className="mt-4 text-sm text-slate-500">No orders found yet.</p>
+        ) : (
+          <ul className="mt-4 space-y-3">
+            {orders.map((order) => (
+              <li
+                key={order._id}
+                className="rounded-xl border border-slate-200 p-4 text-sm"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-mono text-xs text-slate-500">
+                    {order._id}
+                  </p>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                    {order.status}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-4 text-slate-600">
+                  <p>Items: {order.items?.length || 0}</p>
+                  <p>Total: ${Number(order.totalPrice || 0).toFixed(2)}</p>
+                  <p>Payment: {order.paymentMethod}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   );

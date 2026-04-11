@@ -30,6 +30,10 @@ function App() {
             <Route path="/home" element={<CustomerHome />} />
             <Route path="/products/:id" element={<CustomerProductDetail />} />
             <Route path="/profile" element={<CustomerProfilePage />} />
+            <Route
+              path="/orders"
+              element={<Navigate to="/profile" replace />}
+            />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/search" element={<CustomerSearchResultsPage />} />
           </Route>

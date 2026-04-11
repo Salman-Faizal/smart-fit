@@ -14,7 +14,6 @@ export default function CustomerProductDetail() {
   const [actionMessage, setActionMessage] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState("M");
-  const [recommendations, setRecommendations] = useState([]);
   const [alsoViewedRecommendations, setAlsoViewedRecommendations] = useState(
     [],
   );
@@ -27,8 +26,6 @@ export default function CustomerProductDetail() {
         const data = await api.getProductById(id);
         setProduct(data);
         setQuantity(1);
-        const recommendationData = await api.getProductRecommendations(id);
-        setRecommendations(recommendationData.recommendations || []);
         const alsoViewedData = await api.getAlsoViewedRecommendations(id);
         setAlsoViewedRecommendations(alsoViewedData.recommendations || []);
       } catch (err) {
@@ -162,11 +159,6 @@ export default function CustomerProductDetail() {
         </div>
       </section>
 
-      <RecommendationSection
-        title="Recommended for You"
-        badge="Customers also love"
-        products={recommendations}
-      />
       <RecommendationSection
         title="Customers also viewed"
         badge="Popular with similar users"

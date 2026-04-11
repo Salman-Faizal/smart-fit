@@ -21,6 +21,19 @@ const WEIGHTS = {
   stockSignal: 6,
 };
 
+const TRENDING_WEIGHTS = {
+  purchasesSignal: 0.48,
+  viewsSignal: 0.28,
+  recencySignal: 0.16,
+  stockSignal: 0.08,
+};
+
+const DISCOVER_WEIGHTS = {
+  personalization: 0.52,
+  trend: 0.28,
+  novelty: 0.2,
+};
+
 const normalizeLimit = (limit, fallback = DEFAULT_LIMIT) => {
   const parsed = Number(limit);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
@@ -31,6 +44,30 @@ const normalizeMetric = (value, max) => {
   const safe = Number(value) || 0;
   if (!max || max <= 0) return 0;
   return Math.min(safe / max, 1);
+};
+
+const toIdSet = (ids = []) => {
+  const output = new Set();
+
+  for (const id of ids) {
+    if (!id) continue;
+    output.add(String(id));
+  }
+
+  return output;
+};
+
+const parseExcludeIds = (excludeIds = []) => {
+  if (!excludeIds) return [];
+
+  const raw = Array.isArray(excludeIds)
+    ? excludeIds
+    : String(excludeIds)
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+  return [...new Set(raw)].filter((id) => mongoose.Types.ObjectId.isValid(id));
 };
 
 const recencyScore = (dateValue) => {
@@ -204,26 +241,34 @@ const getTrendingRecommendations = async ({
   category,
   limit = DEFAULT_LIMIT,
   excludeProductId,
+  excludeIds = [],
 } = {}) => {
   const normalizedLimit = normalizeLimit(limit);
+  const excludedIds = parseExcludeIds(excludeIds);
 
-  const baseQuery = {};
+  const baseQuery = { stock: { $gt: 0 } };
+  const exclusionSet = [...excludedIds];
+
   if (excludeProductId && mongoose.Types.ObjectId.isValid(excludeProductId)) {
-    baseQuery._id = { $ne: excludeProductId };
+    exclusionSet.push(excludeProductId);
+  }
+
+  if (exclusionSet.length) {
+    baseQuery._id = { $nin: exclusionSet };
   }
 
   const categoryQuery = category ? { ...baseQuery, category } : baseQuery;
 
   const primary = await Product.find(categoryQuery)
     .select(RECOMMENDATION_SELECT)
-    .limit(Math.max(normalizedLimit * 2, normalizedLimit));
+    .limit(Math.max(normalizedLimit * 3, normalizedLimit));
 
   let candidates = primary;
 
   if (candidates.length < normalizedLimit) {
     const fallback = await Product.find(baseQuery)
       .select(RECOMMENDATION_SELECT)
-      .limit(Math.max(normalizedLimit * 4, normalizedLimit));
+      .limit(Math.max(normalizedLimit * 6, normalizedLimit));
 
     candidates = dedupeProducts([...candidates, ...fallback]);
   }
@@ -238,19 +283,183 @@ const getTrendingRecommendations = async ({
   const maxViews = Math.max(...candidates.map((item) => item.views || 0), 1);
 
   const ranked = candidates
-    .map((candidate) => ({
-      candidate,
-      score:
-        normalizeMetric(candidate.purchases, maxPurchases) *
-          WEIGHTS.purchasesSignal +
-        normalizeMetric(candidate.views, maxViews) * WEIGHTS.viewsSignal +
-        recencyScore(candidate.createdAt) * WEIGHTS.recencySignal +
-        (candidate.stock > 0 ? WEIGHTS.stockSignal : -WEIGHTS.stockSignal * 2),
-    }))
+    .map((candidate) => {
+      const stockSignal = Number(candidate.stock || 0) > 0 ? 1 : 0;
+
+      return {
+        candidate,
+        score:
+          normalizeMetric(candidate.purchases, maxPurchases) *
+            TRENDING_WEIGHTS.purchasesSignal +
+          normalizeMetric(candidate.views, maxViews) *
+            TRENDING_WEIGHTS.viewsSignal +
+          recencyScore(candidate.createdAt) * TRENDING_WEIGHTS.recencySignal +
+          stockSignal * TRENDING_WEIGHTS.stockSignal,
+      };
+    })
     .sort((a, b) => b.score - a.score)
     .map((item) => item.candidate);
 
   return diversifyResults(ranked, normalizedLimit);
+};
+
+const getForYouRecommendations = async ({
+  userId,
+  limit = DEFAULT_LIMIT,
+  excludeIds = [],
+} = {}) => {
+  const normalizedLimit = normalizeLimit(limit);
+  const userContext = await getRecentContext(userId);
+
+  const hasPersonalSignals =
+    userContext.recentViewedSet.size > 0 || userContext.purchasedSet.size > 0;
+
+  const baseQuery = { stock: { $gt: 0 } };
+  const excludedIds = parseExcludeIds(excludeIds);
+
+  if (excludedIds.length) {
+    baseQuery._id = { $nin: excludedIds };
+  }
+
+  const candidates = await Product.find(baseQuery)
+    .select(RECOMMENDATION_SELECT)
+    .limit(Math.max(CANDIDATE_POOL_SIZE, normalizedLimit * 10));
+
+  if (!candidates.length) return [];
+
+  if (!hasPersonalSignals) {
+    return getTrendingRecommendations({
+      limit: normalizedLimit,
+      excludeIds,
+    });
+  }
+
+  const maxPurchases = Math.max(
+    ...candidates.map((item) => item.purchases || 0),
+    1,
+  );
+
+  const maxViews = Math.max(...candidates.map((item) => item.views || 0), 1);
+
+  const ranked = candidates
+    .map((candidate) => ({
+      candidate,
+      score: calculateCandidateScore({
+        candidate,
+        anchorCategory: null,
+        maxPurchases,
+        maxViews,
+        ...userContext,
+      }),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.candidate);
+
+  const diversified = diversifyResults(dedupeProducts(ranked), normalizedLimit);
+
+  if (diversified.length >= normalizedLimit) {
+    return diversified;
+  }
+
+  const trendingFallback = await getTrendingRecommendations({
+    limit: normalizedLimit,
+    excludeIds: [
+      ...toIdSet([...excludeIds, ...diversified.map((item) => item._id)]),
+    ],
+  });
+
+  return dedupeProducts([...diversified, ...trendingFallback]).slice(
+    0,
+    normalizedLimit,
+  );
+};
+
+const getDiscoverRecommendations = async ({
+  userId,
+  limit = DEFAULT_LIMIT,
+  excludeIds = [],
+} = {}) => {
+  const normalizedLimit = normalizeLimit(limit);
+  const excludedIds = parseExcludeIds(excludeIds);
+
+  const baseQuery = { stock: { $gt: 0 } };
+  if (excludedIds.length) {
+    baseQuery._id = { $nin: excludedIds };
+  }
+
+  const userContext = await getRecentContext(userId);
+  const candidates = await Product.find(baseQuery)
+    .select(RECOMMENDATION_SELECT)
+    .limit(Math.max(CANDIDATE_POOL_SIZE, normalizedLimit * 12));
+
+  if (!candidates.length) return [];
+
+  const maxPurchases = Math.max(
+    ...candidates.map((item) => item.purchases || 0),
+    1,
+  );
+  const maxViews = Math.max(...candidates.map((item) => item.views || 0), 1);
+
+  const alreadySeenIds = toIdSet([
+    ...userContext.recentViewedSet,
+    ...userContext.purchasedSet,
+  ]);
+  const preferenceCategories = toIdSet([
+    ...userContext.recentCategorySet,
+    ...userContext.purchasedCategorySet,
+  ]);
+
+  const ranked = candidates
+    .map((candidate) => {
+      const personalizationScore = calculateCandidateScore({
+        candidate,
+        anchorCategory: null,
+        maxPurchases,
+        maxViews,
+        ...userContext,
+      });
+
+      const trendScore =
+        normalizeMetric(candidate.purchases, maxPurchases) * 0.55 +
+        normalizeMetric(candidate.views, maxViews) * 0.3 +
+        recencyScore(candidate.createdAt) * 0.15;
+
+      const candidateId = String(candidate._id);
+      const category = String(candidate.category || "");
+      const isFamiliarProduct = alreadySeenIds.has(candidateId);
+      const isFamiliarCategory = preferenceCategories.has(category);
+
+      const noveltyBonus = isFamiliarProduct
+        ? 0
+        : isFamiliarCategory
+          ? 0.35
+          : 1;
+
+      return {
+        candidate,
+        score:
+          personalizationScore * DISCOVER_WEIGHTS.personalization +
+          trendScore * 100 * DISCOVER_WEIGHTS.trend +
+          noveltyBonus * 100 * DISCOVER_WEIGHTS.novelty,
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.candidate);
+
+  const prioritized = [];
+  const familiar = [];
+
+  for (const product of ranked) {
+    const productId = String(product._id);
+    if (alreadySeenIds.has(productId)) {
+      familiar.push(product);
+    } else {
+      prioritized.push(product);
+    }
+  }
+
+  const stitched = [...prioritized, ...familiar];
+  return diversifyResults(dedupeProducts(stitched), normalizedLimit);
 };
 
 const getProductRecommendations = async ({
@@ -337,6 +546,8 @@ const getHybridAlsoViewedRecommendations = async ({
 
 module.exports = {
   RECOMMENDATION_SELECT,
+  getDiscoverRecommendations,
+  getForYouRecommendations,
   getHybridAlsoViewedRecommendations,
   getProductRecommendations,
   getTrendingRecommendations,

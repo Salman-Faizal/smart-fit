@@ -43,6 +43,22 @@ function CheckoutResult({ result, onRetryStripe }) {
             <p className="mt-1 font-mono text-sm font-semibold text-slate-800">
               {result.orderId}
             </p>
+            {result.order ? (
+              <div className="mt-3 space-y-1 border-t border-slate-200 pt-3 text-left text-xs text-slate-600">
+                <p>
+                  <span className="font-semibold text-slate-700">Items:</span>{" "}
+                  {result.order.items?.length || 0}
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700">Total:</span> $
+                  {Number(result.order.totalPrice || 0).toFixed(2)}
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700">Payment:</span>{" "}
+                  {result.order.paymentMethod}
+                </p>
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -50,25 +66,25 @@ function CheckoutResult({ result, onRetryStripe }) {
           {isSuccess ? (
             <>
               <Link
-                to="/orders"
-                className="rounded-xl bg-slate-900 px-5 py-3 text-center text-sm font-semibold text-white hover:bg-slate-800"
-              >
-                View Orders
-              </Link>
-              <Link
                 to="/home"
                 className="rounded-xl border border-slate-200 px-5 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Continue Shopping
               </Link>
+              <Link
+                to="/profile"
+                className="rounded-xl bg-slate-900 px-5 py-3 text-center text-sm font-semibold text-white hover:bg-slate-800"
+              >
+                Order History
+              </Link>
             </>
           ) : isPending ? (
             <>
               <Link
-                to="/orders"
+                to="/profile"
                 className="rounded-xl bg-slate-900 px-5 py-3 text-center text-sm font-semibold text-white hover:bg-slate-800"
               >
-                Check Order Status
+                Checkout History
               </Link>
               <Link
                 to="/home"
@@ -164,7 +180,7 @@ export default function CheckoutPage() {
               type: "success",
               title: "Payment successful",
               description:
-                "Your order has been confirmed. You can view it in your orders page.",
+                "Your order has been confirmed. Review your summary below or open your order history.",
               orderId,
             });
             await loadData();
@@ -173,8 +189,9 @@ export default function CheckoutPage() {
               type: "pending",
               title: "Payment submitted",
               description:
-                "We are verifying your payment. You can safely leave this page and check your order status later.",
+                "We are verifying your payment. Your order summary is shown below while verification completes.",
               orderId,
+              order,
             });
           }
         } else if (paymentState === "failed") {
@@ -567,7 +584,7 @@ export default function CheckoutPage() {
               className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 transition ${
                 paymentMethod === "MANUAL"
                   ? "border-slate-900 bg-slate-50"
-                  : "border-slate-2 00 hover:bg-slate-50"
+                  : "border-slate-200 hover:bg-slate-50"
               }`}
             >
               <input

@@ -22,8 +22,11 @@ function formatCompactCount(value) {
   if (number >= 1_000) return `${Math.floor(number / 1_000)}K+`;
   return `${number}+`;
 }
+
 export default function CustomerHome() {
   const [trending, setTrending] = useState([]);
+  const [forYou, setForYou] = useState([]);
+  const [discoverFeed, setDiscoverFeed] = useState([]);
   const [registeredUsers, setRegisteredUsers] = useState(
     FALLBACK_REGISTERED_USERS,
   );
@@ -33,10 +36,9 @@ export default function CustomerHome() {
 
   const { products, loading, error } = useProducts();
 
-  const topPicks = useMemo(() => {
-    const source = trending.length ? trending : products;
-    return source.slice(0, 12);
-  }, [trending, products]);
+  const displayDiscoverFeed = useMemo(() => {
+    return discoverFeed.length ? discoverFeed : products;
+  }, [discoverFeed, products]);
 
   const heroUsers = formatCompactCount(registeredUsers);
   const heroProducts = formatCompactCount(totalProducts || products.length);
@@ -71,27 +73,53 @@ export default function CustomerHome() {
   }, []);
 
   useEffect(() => {
-    const loadTrending = async () => {
+    const loadRecommendations = async () => {
       try {
-        const data = await api.getTrendingRecommendations();
-        setTrending(data.recommendations || []);
+        const trendingData = await api.getTrendingRecommendations({
+          limit: 12,
+        });
+        const trendingItems = trendingData.recommendations || [];
+        const trendingIds = trendingItems.map((item) => item._id).join(",");
+
+        const forYouData = await api.getForYouRecommendations({
+          limit: 12,
+          exclude: trendingIds,
+        });
+        const forYouItems = forYouData.recommendations || [];
+
+        const usedIds = [...trendingItems, ...forYouItems]
+          .map((item) => item._id)
+          .join(",");
+
+        const discoverData = await api.getDiscoverRecommendations({
+          limit: 48,
+          exclude: usedIds,
+        });
+
+        setTrending(trendingItems);
+        setForYou(forYouItems);
+        setDiscoverFeed(discoverData.recommendations || []);
       } catch {
         setTrending([]);
+        setForYou([]);
+        setDiscoverFeed([]);
       }
     };
 
-    loadTrending();
+    loadRecommendations();
   }, []);
 
   useEffect(() => {
     const node = loaderRef.current;
     if (!node) return;
-    if (visibleCount >= products.length) return;
+    if (visibleCount >= displayDiscoverFeed.length) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + 9, products.length));
+          setVisibleCount((prev) =>
+            Math.min(prev + 9, displayDiscoverFeed.length),
+          );
         }
       },
       { rootMargin: "200px" },
@@ -99,22 +127,19 @@ export default function CustomerHome() {
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [products.length, visibleCount]);
+  }, [displayDiscoverFeed.length, visibleCount]);
 
   return (
     <section className="space-y-14">
-      {/* HERO */}
       <div
         id="home"
         className="scroll-mt-28 relative h-[390px] sm:h-[440px] lg:h-[490px] overflow-hidden rounded-2xl"
       >
-        {/* BACKGROUND IMAGE */}
         <img
           src={heroImage}
           className="absolute inset-0 h-full w-full object-cover object-right brightness-[0.55]"
         />
 
-        {/* CONTENT */}
         <div className="relative z-10 flex h-full items-center px-8 sm:px-12 max-w-xl">
           <div className="max-w-2xl text-white">
             <h1 className=" mt-4 text-4xl sm:text-5xl font-semibold font-montserrat">
@@ -127,7 +152,6 @@ export default function CustomerHome() {
               trust, join thousands discovering smarter ways to shop
             </p>
 
-            {/* METRICS */}
             <div className="mt-8 flex flex-wrap gap-9 text-sm">
               <div>
                 <p className="text-3xl font-bold font-montserrat">
@@ -156,43 +180,44 @@ export default function CustomerHome() {
         </div>
       </div>
 
-      {/* TRENDING */}
       <div id="trending">
         <RecommendationSection
           title="Trending Now"
+          subtitle="Global best-performers driven by store-wide views and purchases."
           badge="Popular"
           products={trending}
         />
       </div>
 
-      {/* FOR YOU */}
       <div id="for-you">
         <RecommendationSection
-          title="Top Picks For You"
-          badge="Curated"
-          products={topPicks}
+          title="For You"
+          subtitle="Personalized picks based on your recent browsing and shopping signals."
+          badge="Personalized"
+          tone="personal"
+          products={forYou}
         />
       </div>
 
-      {/* DISCOVER */}
       <div id="discover" className="space-y-5">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-600">
             Discover More
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            Fresh arrivals and popular items selected for discovery.
+            A mixed feed balancing relevant picks, rising products, and fresh
+            categories to expand discovery.
           </p>
         </div>
 
         {loading && <LoadingState label="Loading..." />}
         {error && <ErrorState message={error} />}
-        {!loading && !error && !products.length ? (
+        {!loading && !error && !displayDiscoverFeed.length ? (
           <EmptyState message="No products available yet." />
         ) : null}
 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {products.slice(0, visibleCount).map((p) => (
+          {displayDiscoverFeed.slice(0, visibleCount).map((p) => (
             <ProductCard key={p._id} product={p} to={`/products/${p._id}`} />
           ))}
         </div>
@@ -200,7 +225,6 @@ export default function CustomerHome() {
         <div ref={loaderRef} className="h-10" />
       </div>
 
-      {/* ABOUT */}
       <div id="about" className="scroll-mt-28 space-y-4">
         <h2 className="text-md font-semibold uppercase tracking-wide text-amber-600">
           About Us
