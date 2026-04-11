@@ -324,8 +324,20 @@ const getProductRecommendations = async ({
   );
 };
 
+const getHybridAlsoViewedRecommendations = async ({
+  productId,
+  userId,
+  limit = DEFAULT_LIMIT,
+}) =>
+  getProductRecommendations({
+    productId,
+    userId,
+    limit,
+  });
+
 module.exports = {
   RECOMMENDATION_SELECT,
+  getHybridAlsoViewedRecommendations,
   getProductRecommendations,
   getTrendingRecommendations,
   normalizeLimit,
