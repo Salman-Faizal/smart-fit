@@ -1,6 +1,7 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
+import { useAuth } from "../../hooks/useAuth";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -9,6 +10,8 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 });
 
 export default function AdminDashboard() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -73,8 +76,23 @@ export default function AdminDashboard() {
     return null;
   }
 
+  const handleLogout = () => {
+    logout();
+    navigate("/signin", { replace: true });
+  };
+
   return (
     <section className="space-y-6">
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+        >
+          Logout
+        </button>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard
           title="Total Sales"

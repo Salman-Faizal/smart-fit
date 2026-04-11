@@ -1,12 +1,15 @@
 const recommendationService = require("../services/recommendation.service");
 
+const resolveLimit = (limit, fallback) =>
+  recommendationService.normalizeLimit(limit, fallback);
+
 exports.getProductRecommendations = async (req, res) => {
   try {
     const recommendations =
       await recommendationService.getProductRecommendations({
         productId: req.params.productId,
         userId: req.user?.id,
-        limit: 12,
+        limit: resolveLimit(req.query.limit, 18),
       });
 
     return res.status(200).json({ recommendations });
@@ -23,9 +26,8 @@ exports.getTrendingRecommendations = async (req, res) => {
     const recommendations =
       await recommendationService.getTrendingRecommendations({
         category: req.query.category,
-        limit: 12,
+        limit: resolveLimit(req.query.limit, 18),
       });
-    console.log("TRENDING COUNT:", recommendations.length);
 
     return res.status(200).json({ recommendations });
   } catch (error) {
@@ -41,7 +43,7 @@ exports.getHybridAlsoViewedRecommendations = async (req, res) => {
       await recommendationService.getHybridAlsoViewedRecommendations({
         productId: req.params.productId,
         userId: req.user?.id,
-        limit: 12,
+        limit: resolveLimit(req.query.limit, 18),
       });
 
     return res.status(200).json({ recommendations });

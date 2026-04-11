@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, assetUrl } from "../../lib/api";
 import { useAuth } from "../../hooks/useAuth";
 
 export default function CustomerProfilePage() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
   const [avatarFile, setAvatarFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -16,6 +18,11 @@ export default function CustomerProfilePage() {
 
     return assetUrl(user?.avatar?.url);
   }, [avatarFile, user?.avatar?.url]);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/signin", { replace: true });
+  };
 
   const handleAvatarSubmit = async (event) => {
     event.preventDefault();
@@ -88,13 +95,22 @@ export default function CustomerProfilePage() {
             </p>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-lg bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
-          >
-            {loading ? "Uploading..." : "Save Avatar"}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-lg bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+            >
+              {loading ? "Uploading..." : "Save Avatar"}
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-lg border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Logout
+            </button>
+          </div>
         </form>
       </div>
     </section>

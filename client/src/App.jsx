@@ -12,6 +12,7 @@ import CustomerHome from "./pages/customer/CustomerHome";
 import CustomerProductDetail from "./pages/customer/CustomerProductDetail";
 import CustomerProfilePage from "./pages/customer/CustomerProfilePage";
 import CheckoutPage from "./pages/customer/CheckoutPage";
+import CustomerSearchResultsPage from "./pages/customer/CustomerSearchResultsPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProductsPage from "./pages/admin/AdminProductsPage";
 import AdminProductCreatePage from "./pages/admin/AdminProductCreatePage";
@@ -30,6 +31,7 @@ function App() {
             <Route path="/products/:id" element={<CustomerProductDetail />} />
             <Route path="/profile" element={<CustomerProfilePage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/search" element={<CustomerSearchResultsPage />} />
           </Route>
         </Route>
 

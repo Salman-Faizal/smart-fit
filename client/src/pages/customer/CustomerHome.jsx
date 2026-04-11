@@ -22,45 +22,26 @@ function formatCompactCount(value) {
   if (number >= 1_000) return `${Math.floor(number / 1_000)}K+`;
   return `${number}+`;
 }
-
-function MetricCard({ value, label }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-      <p className="text-2xl font-semibold text-white">{value}</p>
-      <p className="mt-1 text-sm text-slate-300">{label}</p>
-    </div>
-  );
-}
-
 export default function CustomerHome() {
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
   const [trending, setTrending] = useState([]);
   const [registeredUsers, setRegisteredUsers] = useState(
     FALLBACK_REGISTERED_USERS,
   );
   const [totalProducts, setTotalProducts] = useState(0);
   const [visibleCount, setVisibleCount] = useState(BASE_VISIBLE);
-
   const loaderRef = useRef(null);
 
-  const { products, loading, error } = useProducts({ search, category });
-
-  const categories = useMemo(
-    () => [...new Set(products.map((p) => p.category).filter(Boolean))],
-    [products],
-  );
+  const { products, loading, error } = useProducts();
 
   const topPicks = useMemo(() => {
     const source = trending.length ? trending : products;
-    return source.slice(0, 8);
+    return source.slice(0, 12);
   }, [trending, products]);
 
   const heroUsers = formatCompactCount(registeredUsers);
   const heroProducts = formatCompactCount(totalProducts || products.length);
   const heroSatisfaction = `${SATISFACTION_RATE}%`;
 
-  // metrics load
   useEffect(() => {
     const loadMetrics = async () => {
       try {
@@ -73,14 +54,14 @@ export default function CustomerHome() {
         const users = Number(
           overview?.users ?? overview?.registeredUsers ?? overview?.userCount,
         );
-        const products = Number(
+        const productsCount = Number(
           overview?.products ??
             overview?.productCount ??
             overview?.totalProducts,
         );
 
         if (users) setRegisteredUsers(users);
-        if (products) setTotalProducts(products);
+        if (productsCount) setTotalProducts(productsCount);
       } catch (err) {
         console.error("Failed to load metrics:", err);
       }
@@ -89,13 +70,10 @@ export default function CustomerHome() {
     loadMetrics();
   }, []);
 
-  // trending
   useEffect(() => {
     const loadTrending = async () => {
       try {
-        const data = await api.getTrendingRecommendations(
-          category ? { category } : {},
-        );
+        const data = await api.getTrendingRecommendations();
         setTrending(data.recommendations || []);
       } catch {
         setTrending([]);
@@ -103,9 +81,8 @@ export default function CustomerHome() {
     };
 
     loadTrending();
-  }, [category]);
+  }, []);
 
-  // infinite scroll
   useEffect(() => {
     const node = loaderRef.current;
     if (!node) return;
@@ -123,17 +100,6 @@ export default function CustomerHome() {
     observer.observe(node);
     return () => observer.disconnect();
   }, [products.length, visibleCount]);
-
-  // handlers (RESET happens here instead of useEffect)
-  const handleSearchChange = (value) => {
-    setSearch(value);
-    setVisibleCount(BASE_VISIBLE);
-  };
-
-  const handleCategoryChange = (value) => {
-    setCategory(value);
-    setVisibleCount(BASE_VISIBLE);
-  };
 
   return (
     <section className="space-y-14">
@@ -209,28 +175,21 @@ export default function CustomerHome() {
       </div>
 
       {/* DISCOVER */}
-      <div id="discover">
-        <div className="grid gap-4 md:grid-cols-[2fr_1fr] mb-6">
-          <input
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search..."
-            className="rounded-full border px-4 py-3"
-          />
-          <select
-            value={category}
-            onChange={(e) => handleCategoryChange(e.target.value)}
-            className="rounded-full border px-4 py-3"
-          >
-            <option value="">All</option>
-            {categories.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
+      <div id="discover" className="space-y-5">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-600">
+            Discover More
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Fresh arrivals and popular items selected for discovery.
+          </p>
         </div>
 
         {loading && <LoadingState label="Loading..." />}
         {error && <ErrorState message={error} />}
+        {!loading && !error && !products.length ? (
+          <EmptyState message="No products available yet." />
+        ) : null}
 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {products.slice(0, visibleCount).map((p) => (

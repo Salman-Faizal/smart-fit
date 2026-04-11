@@ -3,91 +3,268 @@ const Product = require("../models/Product");
 const User = require("../models/User");
 
 const RECOMMENDATION_SELECT =
-  "name price images category views purchases stock";
+  "name price images category views purchases stock createdAt";
 
-const buildScore = ({
+const DEFAULT_LIMIT = 18;
+const MAX_LIMIT = 60;
+const CANDIDATE_POOL_SIZE = 400;
+
+const WEIGHTS = {
+  categoryMatch: 42,
+  recentViewedProduct: 22,
+  recentViewedCategory: 18,
+  purchasedProduct: 28,
+  purchasedCategory: 16,
+  purchasesSignal: 20,
+  viewsSignal: 14,
+  recencySignal: 12,
+  stockSignal: 6,
+};
+
+const normalizeLimit = (limit, fallback = DEFAULT_LIMIT) => {
+  const parsed = Number(limit);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(Math.floor(parsed), MAX_LIMIT);
+};
+
+const normalizeMetric = (value, max) => {
+  const safe = Number(value) || 0;
+  if (!max || max <= 0) return 0;
+  return Math.min(safe / max, 1);
+};
+
+const recencyScore = (dateValue) => {
+  const createdAt = new Date(dateValue);
+  if (Number.isNaN(createdAt.getTime())) return 0;
+
+  const ageDays = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+
+  if (ageDays <= 7) return 1;
+  if (ageDays <= 30) return 0.8;
+  if (ageDays <= 90) return 0.5;
+  if (ageDays <= 180) return 0.25;
+  return 0.1;
+};
+
+const calculateCandidateScore = ({
   candidate,
   anchorCategory,
   recentViewedSet,
-  recentCategories,
+  recentCategorySet,
+  purchasedSet,
+  purchasedCategorySet,
+  maxPurchases,
+  maxViews,
 }) => {
   let score = 0;
 
-  if (candidate.category === anchorCategory) {
-    score += 60;
+  if (anchorCategory && candidate.category === anchorCategory) {
+    score += WEIGHTS.categoryMatch;
   }
 
-  score += Number(candidate.purchases || 0) * 5;
-  score += Number(candidate.views || 0) * 2;
+  const candidateId = String(candidate._id);
 
-  if (recentViewedSet.has(String(candidate._id))) {
-    score += 10;
+  if (recentViewedSet.has(candidateId)) {
+    score += WEIGHTS.recentViewedProduct;
   }
 
-  if (recentCategories.has(candidate.category)) {
-    score += 6;
+  if (candidate.category && recentCategorySet.has(candidate.category)) {
+    score += WEIGHTS.recentViewedCategory;
+  }
+
+  if (purchasedSet.has(candidateId)) {
+    score += WEIGHTS.purchasedProduct;
+  }
+
+  if (candidate.category && purchasedCategorySet.has(candidate.category)) {
+    score += WEIGHTS.purchasedCategory;
+  }
+
+  score +=
+    normalizeMetric(candidate.purchases, maxPurchases) *
+    WEIGHTS.purchasesSignal;
+
+  score += normalizeMetric(candidate.views, maxViews) * WEIGHTS.viewsSignal;
+
+  score += recencyScore(candidate.createdAt) * WEIGHTS.recencySignal;
+
+  if (Number(candidate.stock || 0) > 0) {
+    score += WEIGHTS.stockSignal;
+  } else {
+    score -= WEIGHTS.stockSignal * 2;
   }
 
   return score;
+};
+
+const dedupeProducts = (products = []) => {
+  const output = [];
+  const seen = new Set();
+
+  for (const product of products) {
+    const id = String(product._id);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    output.push(product);
+  }
+
+  return output;
+};
+
+const diversifyResults = (rankedProducts, limit) => {
+  const byCategory = new Map();
+
+  for (const product of rankedProducts) {
+    const key = product.category || "uncategorized";
+    if (!byCategory.has(key)) {
+      byCategory.set(key, []);
+    }
+    byCategory.get(key).push(product);
+  }
+
+  const selected = [];
+  const seen = new Set();
+
+  while (selected.length < limit) {
+    let progressed = false;
+
+    for (const queue of byCategory.values()) {
+      while (queue.length) {
+        const next = queue.shift();
+        const id = String(next._id);
+        if (seen.has(id)) continue;
+
+        seen.add(id);
+        selected.push(next);
+        progressed = true;
+        break;
+      }
+
+      if (selected.length >= limit) break;
+    }
+
+    if (!progressed) break;
+  }
+
+  return selected;
 };
 
 const getRecentContext = async (userId) => {
   if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
     return {
       recentViewedSet: new Set(),
-      recentCategories: new Set(),
+      recentCategorySet: new Set(),
+      purchasedSet: new Set(),
+      purchasedCategorySet: new Set(),
     };
   }
 
-  const user = await User.findById(userId).select("recentlyViewed");
+  const user = await User.findById(userId).select(
+    "recentlyViewed purchasedProducts",
+  );
+
   const recentlyViewed = (user?.recentlyViewed || []).map(String);
+  const purchasedProducts = (user?.purchasedProducts || []).map(String);
+  const relatedIds = [...new Set([...recentlyViewed, ...purchasedProducts])];
 
-  if (!recentlyViewed.length) {
+  if (!relatedIds.length) {
     return {
-      recentViewedSet: new Set(),
-      recentCategories: new Set(),
+      recentViewedSet: new Set(recentlyViewed),
+      recentCategorySet: new Set(),
+      purchasedSet: new Set(purchasedProducts),
+      purchasedCategorySet: new Set(),
     };
   }
 
-  const recentlyViewedProducts = await Product.find({
-    _id: { $in: recentlyViewed },
-  }).select("category");
+  const relatedProducts = await Product.find({
+    _id: { $in: relatedIds },
+  }).select("_id category");
+
+  const productById = new Map(
+    relatedProducts.map((product) => [String(product._id), product]),
+  );
+
+  const recentCategories = recentlyViewed
+    .map((id) => productById.get(id)?.category)
+    .filter(Boolean);
+
+  const purchasedCategories = purchasedProducts
+    .map((id) => productById.get(id)?.category)
+    .filter(Boolean);
 
   return {
     recentViewedSet: new Set(recentlyViewed),
-    recentCategories: new Set(
-      recentlyViewedProducts.map((product) => product.category).filter(Boolean),
-    ),
+    recentCategorySet: new Set(recentCategories),
+    purchasedSet: new Set(purchasedProducts),
+    purchasedCategorySet: new Set(purchasedCategories),
   };
 };
 
 const getTrendingRecommendations = async ({
   category,
-  limit = 12,
+  limit = DEFAULT_LIMIT,
   excludeProductId,
 } = {}) => {
-  const query = {};
+  const normalizedLimit = normalizeLimit(limit);
 
-  if (category) {
-    query.category = category;
-  }
-
+  const baseQuery = {};
   if (excludeProductId && mongoose.Types.ObjectId.isValid(excludeProductId)) {
-    query._id = { $ne: excludeProductId };
+    baseQuery._id = { $ne: excludeProductId };
   }
 
-  return Product.find(query)
-    .sort({ purchases: -1, views: -1, createdAt: -1 })
-    .limit(limit)
-    .select(RECOMMENDATION_SELECT);
+  const categoryQuery = category ? { ...baseQuery, category } : baseQuery;
+
+  const primary = await Product.find(categoryQuery)
+    .select(RECOMMENDATION_SELECT)
+    .limit(Math.max(normalizedLimit * 2, normalizedLimit));
+
+  let candidates = primary;
+
+  if (candidates.length < normalizedLimit) {
+    const fallback = await Product.find(baseQuery)
+      .select(RECOMMENDATION_SELECT)
+      .limit(Math.max(normalizedLimit * 4, normalizedLimit));
+
+    candidates = dedupeProducts([...candidates, ...fallback]);
+  }
+
+  if (!candidates.length) return [];
+
+  const maxPurchases = Math.max(
+    ...candidates.map((item) => item.purchases || 0),
+    1,
+  );
+
+  const maxViews = Math.max(...candidates.map((item) => item.views || 0), 1);
+
+  const ranked = candidates
+    .map((candidate) => ({
+      candidate,
+      score:
+        normalizeMetric(candidate.purchases, maxPurchases) *
+          WEIGHTS.purchasesSignal +
+        normalizeMetric(candidate.views, maxViews) * WEIGHTS.viewsSignal +
+        recencyScore(candidate.createdAt) * WEIGHTS.recencySignal +
+        (candidate.stock > 0 ? WEIGHTS.stockSignal : -WEIGHTS.stockSignal * 2),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.candidate);
+
+  return diversifyResults(ranked, normalizedLimit);
 };
 
-const getProductRecommendations = async ({ productId, userId, limit = 12 }) => {
+const getProductRecommendations = async ({
+  productId,
+  userId,
+  limit = DEFAULT_LIMIT,
+}) => {
   if (!mongoose.Types.ObjectId.isValid(productId)) {
     const error = new Error("Invalid product id");
     error.statusCode = 400;
     throw error;
   }
+
+  const normalizedLimit = normalizeLimit(limit);
 
   const targetProduct =
     await Product.findById(productId).select("_id category");
@@ -98,141 +275,58 @@ const getProductRecommendations = async ({ productId, userId, limit = 12 }) => {
     throw error;
   }
 
-  const { recentViewedSet, recentCategories } = await getRecentContext(userId);
+  const userContext = await getRecentContext(userId);
 
   const candidates = await Product.find({
     _id: { $ne: targetProduct._id },
   })
     .select(RECOMMENDATION_SELECT)
-    .limit(200);
+    .limit(Math.max(CANDIDATE_POOL_SIZE, normalizedLimit * 8));
+
+  if (!candidates.length) return [];
+
+  const maxPurchases = Math.max(
+    ...candidates.map((item) => item.purchases || 0),
+    1,
+  );
+
+  const maxViews = Math.max(...candidates.map((item) => item.views || 0), 1);
 
   const ranked = candidates
     .map((candidate) => ({
       candidate,
-      score: buildScore({
+      score: calculateCandidateScore({
         candidate,
         anchorCategory: targetProduct.category,
-        recentViewedSet,
-        recentCategories,
+        maxPurchases,
+        maxViews,
+        ...userContext,
       }),
     }))
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (b.candidate.purchases !== a.candidate.purchases) {
-        return b.candidate.purchases - a.candidate.purchases;
-      }
-      if (b.candidate.views !== a.candidate.views) {
-        return b.candidate.views - a.candidate.views;
-      }
-      return new Date(b.candidate.createdAt) - new Date(a.candidate.createdAt);
-    });
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.candidate);
 
-  const deduped = [];
-  const seen = new Set();
+  const diversified = diversifyResults(dedupeProducts(ranked), normalizedLimit);
 
-  for (const item of ranked) {
-    const id = String(item.candidate._id);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    deduped.push(item.candidate);
-    if (deduped.length >= limit) break;
+  if (diversified.length >= normalizedLimit) {
+    return diversified;
   }
 
-  if (!deduped.length) {
-    return getTrendingRecommendations({
-      category: targetProduct.category,
-      limit,
-      excludeProductId: productId,
-    });
-  }
+  const fallbackTrending = await getTrendingRecommendations({
+    category: targetProduct.category,
+    limit: normalizedLimit,
+    excludeProductId: targetProduct._id,
+  });
 
-  return deduped;
-};
-
-const getAlsoViewedRecommendations = async (productId, limit = 12) => {
-  if (!mongoose.Types.ObjectId.isValid(productId)) {
-    const error = new Error("Invalid product id");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const users = await User.find({
-    role: "customer",
-    viewedProducts: productId,
-  }).select("viewedProducts");
-
-  if (!users.length) {
-    return [];
-  }
-
-  const counts = new Map();
-
-  for (const user of users) {
-    for (const viewedId of user.viewedProducts || []) {
-      const candidateId = String(viewedId);
-      if (candidateId === String(productId)) continue;
-      counts.set(candidateId, (counts.get(candidateId) || 0) + 1);
-    }
-  }
-
-  const rankedIds = Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, Math.max(limit * 3, limit))
-    .map(([id]) => id);
-
-  if (!rankedIds.length) {
-    return [];
-  }
-
-  const products = await Product.find({
-    _id: { $in: rankedIds },
-  }).select(RECOMMENDATION_SELECT);
-
-  const productMap = new Map(
-    products.map((product) => [String(product._id), product]),
+  return dedupeProducts([...diversified, ...fallbackTrending]).slice(
+    0,
+    normalizedLimit,
   );
-
-  const results = [];
-  for (const id of rankedIds) {
-    const product = productMap.get(id);
-    if (!product) continue;
-    results.push(product);
-    if (results.length >= limit) break;
-  }
-
-  return results;
-};
-
-const getHybridAlsoViewedRecommendations = async ({
-  userId,
-  productId,
-  limit = 5,
-}) => {
-  const [alsoViewed, phase1] = await Promise.all([
-    getAlsoViewedRecommendations(productId, limit),
-    getProductRecommendations({ productId, userId, limit }),
-  ]);
-
-  const merged = [];
-  const seen = new Set();
-
-  for (const source of [alsoViewed, phase1]) {
-    for (const product of source) {
-      const id = String(product._id);
-      if (seen.has(id)) continue;
-      seen.add(id);
-      merged.push(product);
-      if (merged.length >= limit) return merged;
-    }
-  }
-
-  return merged;
 };
 
 module.exports = {
   RECOMMENDATION_SELECT,
   getProductRecommendations,
   getTrendingRecommendations,
-  getAlsoViewedRecommendations,
-  getHybridAlsoViewedRecommendations,
+  normalizeLimit,
 };
