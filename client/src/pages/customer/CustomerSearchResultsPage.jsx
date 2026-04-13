@@ -1,24 +1,79 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ProductCard from "../../components/products/ProductCard";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingState,
-} from "../../components/common/StatusState";
+import { ErrorState, LoadingState } from "../../components/common/StatusState";
 import { api } from "../../lib/api";
 
 const PAGE_LIMIT = 18;
 
+const FILTER_SECTIONS = {
+  category: "Category",
+  price: "Price",
+  date: "Date",
+  popularity: "Popularity",
+};
+
+const SORT_BY_FILTER = {
+  priceLowToHigh: "price_asc",
+  priceHighToLow: "price_desc",
+  newestToOldest: "created_desc",
+  oldestToNewest: "created_asc",
+  mostPopular: "popular_desc",
+};
+
+const FILTER_BY_SORT = Object.entries(SORT_BY_FILTER).reduce(
+  (acc, [filterKey, sortValue]) => {
+    acc[sortValue] = filterKey;
+    return acc;
+  },
+  {},
+);
+
+const DATE_RANGES = {
+  lastWeek: "last_week",
+  lastMonth: "last_month",
+};
+
+const DATE_BY_RANGE = Object.entries(DATE_RANGES).reduce(
+  (acc, [filterKey, value]) => {
+    acc[value] = filterKey;
+    return acc;
+  },
+  {},
+);
+
 export default function CustomerSearchResultsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+
   const initialQuery = searchParams.get("q") || "";
-  const initialCategory = searchParams.get("category") || "";
+  const initialCategories = searchParams
+    .get("category")
+    ?.split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
   const initialSort = searchParams.get("sort") || "";
+  const initialDateRange = searchParams.get("dateRange") || "";
+  const initialLayout = searchParams.get("layout") || "grid";
 
   const [query, setQuery] = useState(initialQuery);
-  const [category, setCategory] = useState(initialCategory);
-  const [sort, setSort] = useState(initialSort);
+  const [selectedCategories, setSelectedCategories] = useState(
+    initialCategories || [],
+  );
+  const [selectedSortFilter, setSelectedSortFilter] = useState(
+    FILTER_BY_SORT[initialSort] || "",
+  );
+  const [selectedDateFilter, setSelectedDateFilter] = useState(
+    DATE_BY_RANGE[initialDateRange] || "",
+  );
+  const [layout, setLayout] = useState(
+    initialLayout === "list" ? "list" : "grid",
+  );
+  const [collapsedSections, setCollapsedSections] = useState({
+    category: false,
+    price: false,
+    date: false,
+    popularity: false,
+  });
   const [page, setPage] = useState(1);
 
   const [products, setProducts] = useState([]);
@@ -33,24 +88,42 @@ export default function CustomerSearchResultsPage() {
 
   useEffect(() => {
     const nextQuery = searchParams.get("q") || "";
-    const nextCategory = searchParams.get("category") || "";
+    const nextCategories = searchParams
+      .get("category")
+      ?.split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
     const nextSort = searchParams.get("sort") || "";
+    const nextDateRange = searchParams.get("dateRange") || "";
+    const nextLayout = searchParams.get("layout") || "grid";
 
     setQuery(nextQuery);
-    setCategory(nextCategory);
-    setSort(nextSort);
+    setSelectedCategories(nextCategories || []);
+    setSelectedSortFilter(FILTER_BY_SORT[nextSort] || "");
+    setSelectedDateFilter(DATE_BY_RANGE[nextDateRange] || "");
+    setLayout(nextLayout === "list" ? "list" : "grid");
     setPage(1);
   }, [searchParams]);
+
+  const selectedSort = selectedSortFilter
+    ? SORT_BY_FILTER[selectedSortFilter]
+    : "";
+  const selectedDateRange = selectedDateFilter
+    ? DATE_RANGES[selectedDateFilter]
+    : "";
 
   const requestParams = useMemo(
     () => ({
       page,
       limit: PAGE_LIMIT,
       ...(query ? { search: query } : {}),
-      ...(category ? { category } : {}),
-      ...(sort ? { sort } : {}),
+      ...(selectedCategories.length
+        ? { category: selectedCategories.join(",") }
+        : {}),
+      ...(selectedSort ? { sort: selectedSort } : {}),
+      ...(selectedDateRange ? { dateRange: selectedDateRange } : {}),
     }),
-    [page, query, category, sort],
+    [page, query, selectedCategories, selectedSort, selectedDateRange],
   );
 
   useEffect(() => {
@@ -117,94 +190,327 @@ export default function CustomerSearchResultsPage() {
     return () => observer.disconnect();
   }, [hasMore, loading, loadingMore]);
 
-  const updateParams = ({ nextCategory = category, nextSort = sort }) => {
+  const updateParams = ({
+    nextCategories = selectedCategories,
+    nextSortFilter = selectedSortFilter,
+    nextDateFilter = selectedDateFilter,
+    nextLayout = layout,
+  }) => {
     const nextParams = new URLSearchParams();
+    const nextSort = nextSortFilter ? SORT_BY_FILTER[nextSortFilter] : "";
+    const nextDateRange = nextDateFilter ? DATE_RANGES[nextDateFilter] : "";
 
     if (query) nextParams.set("q", query);
-    if (nextCategory) nextParams.set("category", nextCategory);
+    if (nextCategories.length)
+      nextParams.set("category", nextCategories.join(","));
     if (nextSort) nextParams.set("sort", nextSort);
+    if (nextDateRange) nextParams.set("dateRange", nextDateRange);
+    if (nextLayout === "list") nextParams.set("layout", "list");
 
     setSearchParams(nextParams, { replace: true });
   };
 
-  const onCategoryChange = (value) => {
-    updateParams({ nextCategory: value });
+  const toggleCategory = (value) => {
+    const exists = selectedCategories.includes(value);
+    const nextCategories = exists
+      ? selectedCategories.filter((item) => item !== value)
+      : [...selectedCategories, value];
+
+    updateParams({ nextCategories });
   };
 
-  const onSortChange = (value) => {
-    updateParams({ nextSort: value });
+  const toggleSortFilter = (filterKey) => {
+    updateParams({
+      nextSortFilter: selectedSortFilter === filterKey ? "" : filterKey,
+    });
   };
+
+  const toggleDateFilter = (filterKey) => {
+    updateParams({
+      nextDateFilter: selectedDateFilter === filterKey ? "" : filterKey,
+    });
+  };
+
+  const clearAllFilters = () => {
+    updateParams({
+      nextCategories: [],
+      nextSortFilter: "",
+      nextDateFilter: "",
+    });
+  };
+
+  const toggleFilterSection = (section) => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
+
+  const resultsGridClass =
+    layout === "list"
+      ? "grid gap-5 grid-cols-1"
+      : "grid gap-5 sm:grid-cols-2 xl:grid-cols-3";
+  const hasNoResults = !loading && !error && !products.length;
 
   return (
     <section className="space-y-6" id="search-results">
-      <header className="space-y-1">
-        <h2 className="text-2xl font-bold text-slate-900">Search Results</h2>
-        <p className="text-sm text-slate-500">
-          Showing results for{" "}
-          <span className="font-semibold">“{query || "All products"}”</span>.
+      <div>
+        <p className="p-0 m-0 text-[13px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-amber-600">Home</span> &gt; Search
         </p>
-      </header>
-
-      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm h-fit lg:sticky lg:top-28">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-              Filters
-            </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Refine by category and ranking preference.
+            <p className="text-2xl font-semibold text-slate-900">
+              {!loading && total === 0 ? (
+                <>
+                  No results for{" "}
+                  <span className="italic text-gray-400">
+                    {query || "All products"}
+                  </span>
+                </>
+              ) : (
+                <>
+                  {total} items for{" "}
+                  <span className="italic text-gray-400">
+                    {query || "All products"}
+                  </span>
+                </>
+              )}
             </p>
           </div>
 
-          <label className="block text-sm font-medium text-slate-700">
-            Category
-            <select
-              value={category}
-              onChange={(e) => onCategoryChange(e.target.value)}
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
+          <div
+            className="inline-flex rounded-md border border-slate-200 bg-white p-1 gap-1 text-slate-600 shadow-sm"
+            aria-label="Toggle result layout"
+            role="group"
+          >
+            <button
+              type="button"
+              onClick={() => updateParams({ nextLayout: "list" })}
+              aria-label="List layout"
+              className={`rounded-md p-2 transition ${
+                layout === "list"
+                  ? "bg-amber-100/70 text-amber-600"
+                  : "text-slate-500 hover:bg-slate-100"
+              }`}
             >
-              <option value="">All categories</option>
-              {categories.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </label>
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none">
+                <path
+                  d="M7 7h10M7 12h10M7 17h10M4 7h.01M4 12h.01M4 17h.01"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
 
-          <label className="block text-sm font-medium text-slate-700">
-            Sort by
-            <select
-              value={sort}
-              onChange={(e) => onSortChange(e.target.value)}
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
+            <button
+              type="button"
+              onClick={() => updateParams({ nextLayout: "grid" })}
+              aria-label="Grid layout"
+              className={`rounded-md p-2 transition ${
+                layout === "grid"
+                  ? "bg-amber-100/70 text-amber-600"
+                  : "text-slate-500 hover:bg-slate-100"
+              }`}
             >
-              <option value="">Newest</option>
-              <option value="price_asc">Price: Low to High</option>
-              <option value="price_desc">Price: High to Low</option>
-              <option value="views_desc">Most Viewed</option>
-            </select>
-          </label>
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none">
+                <path
+                  d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <aside className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm h-fit lg:sticky lg:top-28">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <h3 className="text-base font-semibold text-slate-900">Filter</h3>
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="text-sm font-medium text-slate-500 hover:text-amber-600"
+            >
+              Clear
+            </button>
+          </div>
+
+          {Object.entries(FILTER_SECTIONS).map(([key, label]) => {
+            const isCollapsed = collapsedSections[key];
+
+            return (
+              <section key={key} className="border-b border-slate-100 pb-3">
+                <button
+                  type="button"
+                  onClick={() => toggleFilterSection(key)}
+                  className="flex w-full items-center justify-between py-1 text-left"
+                >
+                  <span className="text-sm font-semibold text-slate-800">
+                    {label}
+                  </span>
+                  <span className="text-lg text-slate-500">
+                    {isCollapsed ? "-" : "+"}
+                  </span>
+                </button>
+
+                {!isCollapsed ? (
+                  <div className="mt-2 space-y-2 text-sm text-slate-600">
+                    {key === "category" &&
+                      (categories.length ? (
+                        categories.map((item) => (
+                          <label
+                            key={item}
+                            className="cursor-pointer flex items-center gap-2"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedCategories.includes(item)}
+                              onChange={() => toggleCategory(item)}
+                              className="accent-amber-600 h-4 w-4 rounded border-slate-300"
+                            />
+                            <span>{item}</span>
+                          </label>
+                        ))
+                      ) : (
+                        <p className="text-xs text-slate-400">No categories</p>
+                      ))}
+
+                    {key === "price" && (
+                      <>
+                        <label className="cursor-pointer flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedSortFilter === "priceLowToHigh"}
+                            onChange={() => toggleSortFilter("priceLowToHigh")}
+                            className="accent-amber-600 h-4 w-4 rounded border-slate-300"
+                          />
+                          <span>Low to High</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedSortFilter === "priceHighToLow"}
+                            onChange={() => toggleSortFilter("priceHighToLow")}
+                            className="accent-amber-600 h-4 w-4 rounded border-slate-300"
+                          />
+                          <span>High to Low</span>
+                        </label>
+                      </>
+                    )}
+
+                    {key === "date" && (
+                      <>
+                        <label className="cursor-pointer flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedDateFilter === "lastWeek"}
+                            onChange={() => toggleDateFilter("lastWeek")}
+                            className="accent-amber-600 h-4 w-4 rounded border-slate-300"
+                          />
+                          <span>Last week</span>
+                        </label>
+                        <label className="cursor-pointer flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedDateFilter === "lastMonth"}
+                            onChange={() => toggleDateFilter("lastMonth")}
+                            className="accent-amber-600 h-4 w-4 rounded border-slate-300"
+                          />
+                          <span>Last month</span>
+                        </label>
+                        <label className="cursor-pointer flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedSortFilter === "newestToOldest"}
+                            onChange={() => toggleSortFilter("newestToOldest")}
+                            className="accent-amber-600 h-4 w-4 rounded border-slate-300"
+                          />
+                          <span>New to old</span>
+                        </label>
+                        <label className="cursor-pointer flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedSortFilter === "oldestToNewest"}
+                            onChange={() => toggleSortFilter("oldestToNewest")}
+                            className="accent-amber-600 h-4 w-4 rounded border-slate-300"
+                          />
+                          <span>Old to new</span>
+                        </label>
+                      </>
+                    )}
+
+                    {key === "popularity" && (
+                      <label className="cursor-pointer flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedSortFilter === "mostPopular"}
+                          onChange={() => toggleSortFilter("mostPopular")}
+                          className="accent-amber-600 h-4 w-4 rounded border-slate-300"
+                        />
+                        <span>Most popular</span>
+                      </label>
+                    )}
+                  </div>
+                ) : null}
+              </section>
+            );
+          })}
         </aside>
+
         <div className="space-y-5">
           {loading && <LoadingState label="Loading products..." />}
           {error && <ErrorState message={error} />}
 
-          {!loading && !error && !products.length ? (
-            <EmptyState message="No products found. Try another search." />
+          {hasNoResults ? (
+            <div className="flex min-h-[420px] items-center justify-center rounded-2xl bg-transparent px-6 text-center">
+              <div className="max-w-md space-y-2">
+                <div className="flex justify-center">
+                  <svg
+                    className="h-10  text-slate-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
+                    />
+                  </svg>
+                </div>
+                <p className="text-lg font-semibold text-slate-800">
+                  No matches yet
+                </p>
+                <p className="text-sm text-slate-500">
+                  Don’t worry — great finds are just a search away. Try
+                  adjusting your filters or keywords!
+                </p>
+              </div>
+            </div>
           ) : null}
 
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {products.map((product) => (
-              <ProductCard
-                key={product._id}
-                product={product}
-                to={`/products/${product._id}`}
-              />
-            ))}
-          </div>
+          {!hasNoResults ? (
+            <div className={resultsGridClass}>
+              {products.map((product) => (
+                <ProductCard
+                  key={product._id}
+                  product={product}
+                  to={`/products/${product._id}`}
+                />
+              ))}
+            </div>
+          ) : null}
 
           {loadingMore ? <LoadingState label="Loading more..." /> : null}
           <div ref={loaderRef} className="h-10" />
-        </div>{" "}
+        </div>
       </div>
     </section>
   );

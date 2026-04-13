@@ -1,6 +1,6 @@
 export function LoadingState({ label = "Loading..." }) {
   return (
-    <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+    <div className="p-5 text-center">
       <p className="text-sm font-medium text-slate-500">{label}</p>
     </div>
   );

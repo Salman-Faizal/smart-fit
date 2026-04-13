@@ -41,7 +41,14 @@ exports.createProduct = async (req, res) => {
 exports.getProducts = async (req, res) => {
   try {
     let query = {};
-    const { category, search, sort, page = 1, limit = 10 } = req.query;
+    const {
+      category,
+      search,
+      sort,
+      dateRange,
+      page = 1,
+      limit = 10,
+    } = req.query;
 
     if (category) {
       const categories = category
@@ -60,10 +67,26 @@ exports.getProducts = async (req, res) => {
       query.name = { $regex: search, $options: "i" };
     }
 
+    if (dateRange) {
+      const now = new Date();
+      const dateThreshold = new Date(now);
+
+      if (dateRange === "last_week") {
+        dateThreshold.setDate(now.getDate() - 7);
+        query.createdAt = { $gte: dateThreshold };
+      } else if (dateRange === "last_month") {
+        dateThreshold.setMonth(now.getMonth() - 1);
+        query.createdAt = { $gte: dateThreshold };
+      }
+    }
+
     const sortOptions = {
       price_asc: { price: 1 },
       price_desc: { price: -1 },
       views_desc: { views: -1 },
+      created_asc: { createdAt: 1 },
+      created_desc: { createdAt: -1 },
+      popular_desc: { views: -1, purchases: -1, createdAt: -1 },
     };
     const sortQuery = sortOptions[sort] || { createdAt: -1 };
 

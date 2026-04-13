@@ -10,6 +10,7 @@ import { useProducts } from "../../hooks/useProducts";
 import { api } from "../../lib/api";
 import heroImage from "../../assets/hero.png";
 import aboutImage from "../../assets/about.jpg";
+import QuizFloatingCTA from "../../components/recs/QuizFloatingCTA";
 
 const SATISFACTION_RATE = 95;
 const FALLBACK_REGISTERED_USERS = 250;
@@ -261,6 +262,7 @@ export default function CustomerHome() {
           </div>
         </div>
       </div>
+      <QuizFloatingCTA />
     </section>
   );
 }
