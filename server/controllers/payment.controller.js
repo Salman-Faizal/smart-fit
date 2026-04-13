@@ -104,15 +104,10 @@ exports.handleStripeWebhook = async (req, res) => {
     }
 
     const event = paymentService.verifyStripeWebhookEvent(signature, req.body);
-    const order = await paymentService.handleStripeWebhookEvent(event);
+    await paymentService.handleStripeWebhookEvent(event);
 
-    return res.status(200).json({
-      message: "Webhook processed",
-      eventType: event.type,
-      orderId: order?._id,
-      paymentStatus: order?.paymentStatus,
-      status: order?.status,
-    });
+    // Stripe only checks the HTTP status code; never return order data here
+    return res.status(200).json({ received: true });
   } catch (error) {
     console.error("[Stripe] webhook processing failed", error.message);
     return res.status(error.statusCode || 400).json({

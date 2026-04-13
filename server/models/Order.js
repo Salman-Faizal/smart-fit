@@ -86,8 +86,7 @@ const orderSchema = new mongoose.Schema(
       default: "",
     },
     paymentCallbackRaw: {
-      type: Map,
-      of: String,
+      type: mongoose.Schema.Types.Mixed,
       default: {},
     },
     paymentSlipUrl: {

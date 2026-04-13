@@ -227,6 +227,27 @@ const checkoutOrder = async (userId, paymentMethod) => {
     await validateStock(item.product, item.quantity);
   }
 
+  // Cancel any orphaned PENDING_PAYMENT orders that never reached the payment
+  // gateway (paymentReference is empty). Orders that already have a Stripe
+  // session ID are intentionally left alone — the session.expired webhook will
+  // close them when Stripe's own timeout fires.
+  await Order.updateMany(
+    {
+      user: userId,
+      status: "PENDING_PAYMENT",
+      paymentStatus: "PENDING",
+      paymentReference: "",
+      paymentSlipUrl: { $in: [null, ""] },
+    },
+    {
+      $set: {
+        status: "CANCELLED",
+        paymentStatus: "FAILED",
+        paymentVerifiedAt: new Date(),
+      },
+    },
+  );
+
   const checkoutOrderDoc = await Order.create({
     user: userId,
     items: cart.items.map((item) => ({

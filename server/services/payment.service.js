@@ -71,37 +71,66 @@ const stripeFormEncode = (payload = {}) => {
   return params;
 };
 
-const createStripeCheckoutSessionRequest = async (payload) => {
+const createStripeCheckoutSessionRequest = async (
+  payload,
+  { idempotencyKey } = {},
+) => {
   const secretKey = getStripeSecretKey();
   console.info("[Stripe] Creating checkout session", {
     orderId: payload["metadata[orderId]"],
     customerEmail: payload.customer_email || null,
   });
-  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${secretKey}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: stripeFormEncode(payload),
-  });
 
-  const data = await response.json().catch(() => ({}));
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
-  if (!response.ok) {
-    const message =
-      data?.error?.message || "Failed to create Stripe checkout session";
-    console.error("[Stripe] Session creation failed", {
-      status: response.status,
-      code: data?.error?.code,
-      type: data?.error?.type,
-      message,
-      orderId: payload["metadata[orderId]"],
-    });
-    throw createHttpError(response.status || 500, message);
+  const headers = {
+    Authorization: `Bearer ${secretKey}`,
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
+
+  if (idempotencyKey) {
+    headers["Idempotency-Key"] = idempotencyKey;
   }
 
-  return data;
+  try {
+    const response = await fetch(
+      "https://api.stripe.com/v1/checkout/sessions",
+      {
+        method: "POST",
+        headers,
+        body: stripeFormEncode(payload),
+        signal: controller.signal,
+      },
+    );
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const message =
+        data?.error?.message || "Failed to create Stripe checkout session";
+      console.error("[Stripe] Session creation failed", {
+        status: response.status,
+        code: data?.error?.code,
+        type: data?.error?.type,
+        message,
+        orderId: payload["metadata[orderId]"],
+      });
+      throw createHttpError(response.status || 500, message);
+    }
+
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      console.error("[Stripe] Request timed out after 30s", {
+        orderId: payload["metadata[orderId]"],
+      });
+      throw createHttpError(504, "Stripe request timed out");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 };
 
 const updatePurchaseCounts = async (items, delta, session) => {
@@ -274,7 +303,11 @@ const createStripeCheckoutSession = async (
       : "Smart Fit Product";
   });
 
-  const session = await createStripeCheckoutSessionRequest(payload);
+  // Idempotency key scoped to this order so duplicate requests return the same session
+  const idempotencyKey = `checkout-session-${String(order._id)}`;
+  const session = await createStripeCheckoutSessionRequest(payload, {
+    idempotencyKey,
+  });
 
   order.paymentMethod = "STRIPE";
   order.paymentReference = session.id;
@@ -293,6 +326,7 @@ const applyStripePaymentOutcome = async (order, payload, isSuccess) => {
     throw createHttpError(400, "Order is not a Stripe order");
   }
 
+  // Idempotency: already paid — just refresh audit fields and return
   if (order.paymentStatus === "PAID" && isSuccess) {
     order.paymentCallbackRaw = payload;
     order.paymentTransactionId = String(payload.payment_intent || "");
@@ -300,6 +334,14 @@ const applyStripePaymentOutcome = async (order, payload, isSuccess) => {
     order.paymentGateway = "STRIPE";
     order.paymentVerifiedAt = order.paymentVerifiedAt || new Date();
     await order.save();
+    return order;
+  }
+
+  // Idempotency: already failed/cancelled — nothing more to do
+  if (
+    !isSuccess &&
+    (order.paymentStatus === "FAILED" || order.status === "CANCELLED")
+  ) {
     return order;
   }
 
@@ -387,6 +429,20 @@ const handleStripeWebhookEvent = async (event = {}) => {
   const payload = event?.data?.object || {};
   const orderId = payload?.metadata?.orderId;
 
+  // payment_intent.payment_failed fires when one payment attempt fails inside a
+  // Checkout Session. The session may still be active and the user can retry
+  // with a different card, so we must NOT cancel the order here.
+  // Order status is resolved via checkout.session.completed / expired.
+  if (eventType === "payment_intent.payment_failed") {
+    console.warn("[Stripe] Payment attempt failed (session may still be active)", {
+      paymentIntentId: payload?.id,
+      orderId: orderId || null,
+      failureCode: payload?.last_payment_error?.code || null,
+      failureMessage: payload?.last_payment_error?.message || null,
+    });
+    return null;
+  }
+
   if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
     throw createHttpError(400, "Invalid order reference");
   }
@@ -432,6 +488,20 @@ const verifyStripeWebhookEvent = (signature, rawBodyBuffer) => {
     throw createHttpError(400, "Invalid stripe signature header");
   }
 
+  // Replay attack protection: reject events older than 5 minutes
+  const WEBHOOK_TOLERANCE_SECONDS = 300;
+  const timestamp = Number(values.t);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (
+    !Number.isFinite(timestamp) ||
+    Math.abs(nowSeconds - timestamp) > WEBHOOK_TOLERANCE_SECONDS
+  ) {
+    throw createHttpError(
+      400,
+      "Stripe webhook timestamp is outside the tolerance window",
+    );
+  }
+
   const bodyString = Buffer.isBuffer(rawBodyBuffer)
     ? rawBodyBuffer.toString("utf8")
     : String(rawBodyBuffer || "");
@@ -441,7 +511,13 @@ const verifyStripeWebhookEvent = (signature, rawBodyBuffer) => {
     .update(signedPayload)
     .digest("hex");
 
-  if (expected !== values.v1) {
+  // Timing-safe comparison prevents HMAC timing attacks
+  const expectedBuffer = Buffer.from(expected, "hex");
+  const receivedBuffer = Buffer.from(values.v1, "hex");
+  if (
+    expectedBuffer.length !== receivedBuffer.length ||
+    !crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
+  ) {
     throw createHttpError(400, "Invalid Stripe webhook signature");
   }
 
