@@ -3,7 +3,7 @@ const Product = require("../models/Product");
 const User = require("../models/User");
 
 const RECOMMENDATION_SELECT =
-  "name price images category views purchases stock createdAt";
+  "name price images category views purchases stock createdAt trendingScore";
 
 const DEFAULT_LIMIT = 18;
 const MAX_LIMIT = 60;
@@ -533,6 +533,48 @@ const getProductRecommendations = async ({
   );
 };
 
+/**
+ * Assigns a rank (1-based) and badge label to each product in ranked order.
+ *   Rank 1  → "🔥 #1 This Week"
+ *   Rank 2  → "🔥 #2"
+ *   Rank 3  → "🔥 #3"
+ *   Rank 4–10 → "Trending"
+ *   Rank 11+  → null (no badge)
+ */
+const assignRankBadges = (products) =>
+  products.map((product, index) => {
+    const rank = index + 1;
+    let badge = null;
+    if (rank === 1) badge = "🔥 #1 This Week";
+    else if (rank === 2) badge = "🔥 #2";
+    else if (rank === 3) badge = "🔥 #3";
+    else if (rank <= 10) badge = "Trending";
+
+    const plain =
+      typeof product.toObject === "function" ? product.toObject() : product;
+
+    return { ...plain, rank, badge };
+  });
+
+/**
+ * Fetches the top N products sorted strictly by trendingScore (views as
+ * tiebreaker), assigns rank + badge metadata to each, and returns the list
+ * in rank order. Shuffling for display is intentionally left to the caller
+ * so the frontend can apply a page-load seed.
+ */
+const getTrendingProductsWithRanks = async ({ limit = 20 } = {}) => {
+  const normalizedLimit = Math.min(Math.max(1, Number(limit) || 20), 20);
+
+  const products = await Product.find({ stock: { $gt: 0 } })
+    .select(RECOMMENDATION_SELECT)
+    .sort({ trendingScore: -1, views: -1, purchases: -1 })
+    .limit(normalizedLimit);
+
+  if (!products.length) return [];
+
+  return assignRankBadges(products);
+};
+
 const getHybridAlsoViewedRecommendations = async ({
   productId,
   userId,
@@ -551,5 +593,6 @@ module.exports = {
   getHybridAlsoViewedRecommendations,
   getProductRecommendations,
   getTrendingRecommendations,
+  getTrendingProductsWithRanks,
   normalizeLimit,
 };

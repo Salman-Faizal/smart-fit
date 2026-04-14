@@ -140,6 +140,14 @@ export const api = {
       `/products/recommendations/trending${queryString ? `?${queryString}` : ""}`,
     );
   },
+  // Ranked trending — top 20 with rank and badge metadata, for the home page
+  getTrendingWithRanks: (params = {}) => {
+    const query = new URLSearchParams(params);
+    const queryString = query.toString();
+    return request(
+      `/recommendations/trending${queryString ? `?${queryString}` : ""}`,
+    );
+  },
   getForYouRecommendations: (params = {}) => {
     const query = new URLSearchParams(params);
     const queryString = query.toString();
@@ -155,6 +163,8 @@ export const api = {
     );
   },
   getRecentlyViewed: () => request("/users/me/recently-viewed"),
+  toggleWishlist: (productId) =>
+    request(`/users/me/wishlist/${productId}`, { method: "POST" }),
   createProduct: (formData) =>
     request("/products", {
       method: "POST",

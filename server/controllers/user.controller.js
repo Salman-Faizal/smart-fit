@@ -53,6 +53,40 @@ exports.uploadAvatar = async (req, res) => {
   }
 };
 
+exports.toggleWishlist = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const user = await User.findById(req.user.id).select("wishlist");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const existingIndex = user.wishlist.findIndex(
+      (entry) => entry.product.toString() === productId,
+    );
+
+    let action;
+    if (existingIndex !== -1) {
+      user.wishlist.splice(existingIndex, 1);
+      action = "removed";
+    } else {
+      user.wishlist.push({ product: productId, addedAt: new Date() });
+      action = "added";
+    }
+
+    await user.save();
+
+    return res.status(200).json({
+      action,
+      wishlisted: action === "added",
+      wishlist: user.wishlist,
+    });
+  } catch (_error) {
+    return res.status(500).json({ message: "Failed to update wishlist" });
+  }
+};
+
 exports.getRecentlyViewed = async (req, res) => {
   try {
     const user = await User.findById(req.user.id)

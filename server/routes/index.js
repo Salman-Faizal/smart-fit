@@ -8,6 +8,8 @@ const productRoutes = require("./product.routes");
 const orderRoutes = require("./order.routes");
 const adminRoutes = require("./admin.routes");
 const paymentRoutes = require("./payment.routes");
+const activityRoutes = require("./activity.routes");
+const trendingRoutes = require("./trending.routes");
 
 // mount routes
 router.use("/auth", authRoutes);
@@ -17,5 +19,7 @@ router.use("/products", productRoutes);
 router.use("/", orderRoutes);
 router.use("/", adminRoutes);
 router.use("/", paymentRoutes);
+router.use("/activity", activityRoutes);
+router.use("/recommendations", trendingRoutes);
 
 module.exports = router;

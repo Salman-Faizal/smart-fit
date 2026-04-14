@@ -16,6 +16,30 @@ const SATISFACTION_RATE = 95;
 const FALLBACK_REGISTERED_USERS = 250;
 const BASE_VISIBLE = 9;
 
+/**
+ * Seeded Fisher-Yates shuffle using a simple LCG.
+ * Seed is derived from the page-load timestamp (changes every load) so the
+ * same top-20 products appear but in a fresh display order each time —
+ * matching how ASOS / H&M surface trending items without strict rank order.
+ */
+function seededShuffle(arr, seed) {
+  const result = [...arr];
+  // LCG constants from Numerical Recipes; keep as unsigned 32-bit via >>> 0
+  let s = seed >>> 0;
+  for (let i = result.length - 1; i > 0; i--) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    const j = s % (i + 1);
+    const tmp = result[i];
+    result[i] = result[j];
+    result[j] = tmp;
+  }
+  return result;
+}
+
+// Fixed for the lifetime of this page load so the shuffle is stable across
+// re-renders while still changing on every fresh navigation / F5.
+const PAGE_LOAD_SEED = Date.now();
+
 function formatCompactCount(value) {
   const number = Number(value || 0);
   if (!Number.isFinite(number) || number <= 0) return "0+";
@@ -25,7 +49,7 @@ function formatCompactCount(value) {
 }
 
 export default function CustomerHome() {
-  const [trending, setTrending] = useState([]);
+  const [trendingRaw, setTrendingRaw] = useState([]);
   const [forYou, setForYou] = useState([]);
   const [discoverFeed, setDiscoverFeed] = useState([]);
   const [registeredUsers, setRegisteredUsers] = useState(
@@ -36,6 +60,13 @@ export default function CustomerHome() {
   const loaderRef = useRef(null);
 
   const { products, loading, error } = useProducts();
+
+  // Shuffle the top-20 trending list on every page load using a seeded
+  // random so the same products appear but never in strict rank order.
+  const trending = useMemo(
+    () => seededShuffle(trendingRaw, PAGE_LOAD_SEED),
+    [trendingRaw],
+  );
 
   const displayDiscoverFeed = useMemo(() => {
     return discoverFeed.length ? discoverFeed : products;
@@ -76,10 +107,9 @@ export default function CustomerHome() {
   useEffect(() => {
     const loadRecommendations = async () => {
       try {
-        const trendingData = await api.getTrendingRecommendations({
-          limit: 12,
-        });
-        const trendingItems = trendingData.recommendations || [];
+        // Use the ranked trending endpoint (top 20, badge metadata included)
+        const trendingData = await api.getTrendingWithRanks({ limit: 20 });
+        const trendingItems = trendingData.products || [];
         const trendingIds = trendingItems.map((item) => item._id).join(",");
 
         const forYouData = await api.getForYouRecommendations({
@@ -97,11 +127,11 @@ export default function CustomerHome() {
           exclude: usedIds,
         });
 
-        setTrending(trendingItems);
+        setTrendingRaw(trendingItems);
         setForYou(forYouItems);
         setDiscoverFeed(discoverData.recommendations || []);
       } catch {
-        setTrending([]);
+        setTrendingRaw([]);
         setForYou([]);
         setDiscoverFeed([]);
       }

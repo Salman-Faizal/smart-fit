@@ -79,6 +79,19 @@ exports.getDiscoverRecommendations = async (req, res) => {
   }
 };
 
+exports.getTrendingWithRanks = async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(1, Number(req.query.limit) || 20), 20);
+    const products =
+      await recommendationService.getTrendingProductsWithRanks({ limit });
+    return res.status(200).json({ products, total: products.length });
+  } catch (_error) {
+    return res
+      .status(500)
+      .json({ message: "Failed to load trending products" });
+  }
+};
+
 exports.getHybridAlsoViewedRecommendations = async (req, res) => {
   try {
     const recommendations =

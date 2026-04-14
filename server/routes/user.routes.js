@@ -6,6 +6,7 @@ const {
   getProfile,
   uploadAvatar: uploadAvatarController,
   getRecentlyViewed,
+  toggleWishlist,
 } = require("../controllers/user.controller");
 
 router.get("/profile", protect, getProfile);
@@ -16,5 +17,6 @@ router.post(
   uploadAvatarController,
 );
 router.get("/me/recently-viewed", protect, getRecentlyViewed);
+router.post("/me/wishlist/:productId", protect, toggleWishlist);
 
 module.exports = router;

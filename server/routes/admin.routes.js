@@ -11,4 +11,11 @@ router.get(
   adminController.getDashboardMetrics,
 );
 
+router.post(
+  "/admin/recalculate-trending",
+  protect,
+  authorize(["admin"]),
+  adminController.recalculateTrending,
+);
+
 module.exports = router;

@@ -41,6 +41,7 @@ export default function RecommendationSection({
             <ProductCard
               product={product}
               to={`/products/${product._id}`}
+              badge={product.badge ?? null}
               footer={
                 <Link
                   to={`/products/${product._id}`}

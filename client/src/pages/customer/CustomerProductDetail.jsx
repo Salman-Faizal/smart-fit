@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { ErrorState, LoadingState } from "../../components/common/StatusState";
 import RecommendationSection from "../../components/products/RecommendationSection";
 import { api, assetUrl } from "../../lib/api";
+import { trackActivity } from "../../lib/trackActivity";
 
 const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL"];
 
@@ -17,6 +18,7 @@ export default function CustomerProductDetail() {
   const [alsoViewedRecommendations, setAlsoViewedRecommendations] = useState(
     [],
   );
+  const [wishlisted, setWishlisted] = useState(false);
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -28,6 +30,8 @@ export default function CustomerProductDetail() {
         setQuantity(1);
         const alsoViewedData = await api.getAlsoViewedRecommendations(id);
         setAlsoViewedRecommendations(alsoViewedData.recommendations || []);
+        // Fire view tracking after product is confirmed loaded
+        trackActivity("view", id);
       } catch (err) {
         setError(err.message || "Unable to fetch product");
       } finally {
@@ -55,11 +59,22 @@ export default function CustomerProductDetail() {
     try {
       setActionMessage("");
       await api.addToCart({ productId: id, quantity });
+      trackActivity("cart_add", id);
       setActionMessage(
         `Added ${quantity} item(s), size ${selectedSize}, to cart`,
       );
     } catch (err) {
       setActionMessage(err.message || "Failed to add to cart");
+    }
+  };
+
+  const handleWishlistToggle = async () => {
+    try {
+      const result = await api.toggleWishlist(id);
+      setWishlisted(result.wishlisted);
+      trackActivity(result.wishlisted ? "wishlist_add" : "wishlist_remove", id);
+    } catch {
+      // Wishlist failures are silent — tracking still fired optimistically above
     }
   };
 
@@ -145,13 +160,27 @@ export default function CustomerProductDetail() {
             </div>
           </div>
 
-          <button
-            onClick={handleAddToCart}
-            type="button"
-            className="rounded-md bg-amber-600 px-5 py-2 font-semibold text-white shadow hover:bg-amber-700"
-          >
-            Add to Cart
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleAddToCart}
+              type="button"
+              className="rounded-md bg-amber-600 px-5 py-2 font-semibold text-white shadow hover:bg-amber-700"
+            >
+              Add to Cart
+            </button>
+            <button
+              onClick={handleWishlistToggle}
+              type="button"
+              aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+              className={`rounded-md border px-4 py-2 font-semibold transition ${
+                wishlisted
+                  ? "border-rose-500 bg-rose-50 text-rose-600 hover:bg-rose-100"
+                  : "border-slate-300 bg-white text-slate-600 hover:border-slate-400"
+              }`}
+            >
+              {wishlisted ? "♥ Wishlisted" : "♡ Wishlist"}
+            </button>
+          </div>
 
           {actionMessage ? (
             <p className="text-sm text-slate-600">{actionMessage}</p>

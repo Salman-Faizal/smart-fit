@@ -40,6 +40,25 @@ const productSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // New tracking-backed counters populated by updateTrendingScores()
+    viewCount: {
+      type: Number,
+      default: 0,
+      index: true,
+    },
+    purchaseCount: {
+      type: Number,
+      default: 0,
+    },
+    wishlistCount: {
+      type: Number,
+      default: 0,
+    },
+    trendingScore: {
+      type: Number,
+      default: 0,
+      index: true,
+    },
   },
   {
     timestamps: true,

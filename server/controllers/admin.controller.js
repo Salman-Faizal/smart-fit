@@ -1,4 +1,5 @@
 const adminService = require("../services/admin.service");
+const { updateTrendingScores } = require("../services/trending.service");
 
 exports.getDashboardMetrics = async (req, res) => {
   try {
@@ -18,6 +19,21 @@ exports.getDashboardMetrics = async (req, res) => {
   } catch (error) {
     return res.status(error.statusCode || 500).json({
       message: error.message || "Failed to fetch admin dashboard metrics",
+    });
+  }
+};
+
+exports.recalculateTrending = async (req, res) => {
+  try {
+    const result = await updateTrendingScores();
+    return res.status(200).json({
+      message: "Trending scores recalculated successfully",
+      updated: result.updated,
+      ranAt: result.ranAt,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Failed to recalculate trending scores",
     });
   }
 };
