@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import CustomerHeader from "../../components/layout/CustomerHeader";
+import Footer from "../../components/layout/Footer";
 import { api } from "../../lib/api";
 
 export default function CustomerLayout() {
@@ -34,11 +35,12 @@ export default function CustomerLayout() {
   }, [pathname]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
       <CustomerHeader cartCount={cartCount} />
-      <main className="mx-auto max-w-7xl px-4 pb-8 pt-[110px] sm:px-5">
+      <main className="flex-1 mx-auto w-full max-w-7xl px-4 pb-8 pt-[110px] sm:px-5">
         <Outlet />
       </main>
+      <Footer />
     </div>
   );
 }

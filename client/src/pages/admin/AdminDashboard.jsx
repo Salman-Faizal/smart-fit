@@ -2,12 +2,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import { useAuth } from "../../hooks/useAuth";
+import { formatLKR } from "../../lib/formatLKR";
 
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 2,
-});
+const currencyFormatter = { format: (v) => formatLKR(v) };
 
 export default function AdminDashboard() {
   const { logout } = useAuth();

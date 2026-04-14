@@ -6,15 +6,14 @@ import { trackActivity } from "../../lib/trackActivity";
  * RecommendationSection
  *
  * Props:
- *   title            string    — section heading (uppercase, amber)
+ *   title            string    — section heading
  *   subtitle         string?   — muted sub-heading
- *   badge            string?   — pill badge beside the title
- *   tone             "default" | "personal"  — controls badge/heading colour
+ *   badge            string?   — pill badge beside the title (hidden now — badge moved to right)
+ *   tone             "default" | "personal"  — controls badge colour
  *   products         Product[] — must have _id; may carry .badge and .reason
  *   emptyLabel       string?   — shown when products array is empty instead of hiding
- *   getProductCaption (product) => string | null   — optional fn; when provided,
- *                    its return value is rendered as a muted caption below each
- *                    card (used for the "reason" explainability layer).
+ *   viewAllTo        string?   — route for "View All →" link
+ *   getProductCaption (product) => string | null — optional fn for caption below card
  */
 export default function RecommendationSection({
   title,
@@ -25,8 +24,9 @@ export default function RecommendationSection({
   tone = "default",
   getProductCaption,
   sectionId = "recommendation",
+  viewAllTo,
 }) {
-  if (!products.length) return null;
+  if (!products.length && !emptyLabel) return null;
 
   const badgeClassName =
     tone === "personal"
@@ -34,21 +34,31 @@ export default function RecommendationSection({
       : "rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700";
 
   return (
-    <section className="space-y-4 space-x-0">
+    <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-600">
+          <h2 className="text-lg font-semibold text-slate-900">
             {title}
           </h2>
           {subtitle ? (
-            <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+            <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>
           ) : null}
         </div>
 
-        {badge ? <span className={badgeClassName}>{badge}</span> : null}
+        <div className="flex items-center gap-3 shrink-0">
+          {badge ? <span className={badgeClassName}>{badge}</span> : null}
+          {viewAllTo ? (
+            <Link
+              to={viewAllTo}
+              className="text-sm font-medium text-amber-600 hover:text-amber-700 hover:underline whitespace-nowrap"
+            >
+              View All →
+            </Link>
+          ) : null}
+        </div>
       </div>
 
-      {emptyLabel ? (
+      {emptyLabel && !products.length ? (
         <p className="text-sm text-slate-500">{emptyLabel}</p>
       ) : null}
 
@@ -56,28 +66,14 @@ export default function RecommendationSection({
         {products.map((product) => {
           const caption = getProductCaption ? getProductCaption(product) : null;
           return (
-            <div key={product._id} className="w-[220px] flex-shrink-0 snap-start">
+            <div key={product._id} className="w-[210px] flex-shrink-0 snap-start">
               <ProductCard
                 product={product}
                 to={`/products/${product._id}`}
-                badge={product.badge ?? null}
                 onImageClick={() =>
                   trackActivity("recommendation_click", product._id, {
                     section: sectionId,
                   })
-                }
-                footer={
-                  <Link
-                    to={`/products/${product._id}`}
-                    onClick={() =>
-                      trackActivity("recommendation_click", product._id, {
-                        section: sectionId,
-                      })
-                    }
-                    className="rounded-full bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700"
-                  >
-                    View
-                  </Link>
                 }
               />
               {caption ? (

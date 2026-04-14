@@ -218,4 +218,43 @@ export const api = {
       `/admin/dashboard/metrics${queryString ? `?${queryString}` : ""}`,
     );
   },
+  // Wishlist
+  getWishlist: () => request("/users/me/wishlist"),
+  // Profile update
+  updateProfile: (payload) =>
+    request("/users/me/profile", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  // Addresses
+  getAddresses: () => request("/users/me/addresses"),
+  addAddress: (payload) =>
+    request("/users/me/addresses", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateAddress: (addressId, payload) =>
+    request(`/users/me/addresses/${addressId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  deleteAddress: (addressId) =>
+    request(`/users/me/addresses/${addressId}`, {
+      method: "DELETE",
+    }),
+  setDefaultAddress: (addressId) =>
+    request(`/users/me/addresses/${addressId}/default`, {
+      method: "PUT",
+    }),
+  // Password change
+  changePassword: (payload) =>
+    request("/users/me/change-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  // Account deletion
+  deleteAccount: () =>
+    request("/users/me/account", {
+      method: "DELETE",
+    }),
 };
