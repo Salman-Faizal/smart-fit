@@ -65,6 +65,16 @@ const productSchema = new mongoose.Schema(
   },
 );
 
+// Compound index for category-filtered + in-stock + trending sort.
+// Hits every query in discover (pool A/B), alsoViewed fallback,
+// checkoutUpsell complement fill, and forYou category scoring.
+productSchema.index({ category: 1, stock: 1, trendingScore: -1 });
+
+// Compound index for stock-filtered trending sort — used by trending endpoint,
+// discover pool C, and flash-fill fallback in checkoutUpsell.
+// trendingScore already has a single-field index; this covers the stock filter.
+productSchema.index({ stock: 1, trendingScore: -1 });
+
 const Product = mongoose.model("Product", productSchema);
 
 module.exports = Product;

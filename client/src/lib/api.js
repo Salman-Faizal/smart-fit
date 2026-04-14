@@ -148,6 +148,38 @@ export const api = {
       `/recommendations/trending${queryString ? `?${queryString}` : ""}`,
     );
   },
+  // Personalized top-12 picks — requires auth (userId from JWT server-side)
+  getTopPicksForUser: (params = {}) => {
+    const query = new URLSearchParams(params);
+    const queryString = query.toString();
+    return request(
+      `/recommendations/for-you${queryString ? `?${queryString}` : ""}`,
+    );
+  },
+  // Smart pre-checkout upsell — P1 wishlist / P2 repeat-views / P3 complements / P4 trending
+  getCheckoutUpsell: (params = {}) => {
+    const query = new URLSearchParams(params);
+    const queryString = query.toString();
+    return request(
+      `/recommendations/checkout-upsell${queryString ? `?${queryString}` : ""}`,
+    );
+  },
+  // Collaborative-filtering "Customers Also Viewed" for the product detail page
+  getAlsoViewed: (productId, params = {}) => {
+    const query = new URLSearchParams(params);
+    const queryString = query.toString();
+    return request(
+      `/recommendations/also-viewed/${productId}${queryString ? `?${queryString}` : ""}`,
+    );
+  },
+  // Hybrid paginated discover feed — cursor-based, works for guests too
+  getDiscoverFeed: (params = {}) => {
+    const query = new URLSearchParams(params);
+    const queryString = query.toString();
+    return request(
+      `/recommendations/discover${queryString ? `?${queryString}` : ""}`,
+    );
+  },
   getForYouRecommendations: (params = {}) => {
     const query = new URLSearchParams(params);
     const queryString = query.toString();

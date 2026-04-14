@@ -60,9 +60,15 @@ const userActivitySchema = new mongoose.Schema(
   },
 );
 
-// Compound index for per-user event history queries
+// Per-user chronological history (forYou taste profile, wishlist lookups)
 userActivitySchema.index({ userId: 1, timestamp: -1 });
-// Compound index for per-product event aggregation
+// Per-user filtered by event type + time — checkout upsell repeat-views agg,
+// also-viewed purchase exclusion. This is the highest-value missing index.
+userActivitySchema.index({ userId: 1, eventType: 1, timestamp: -1 });
+// Per-session filtered by event type + time — also-viewed $lookup self-join
+// matches on sessionId when userId is null (guest sessions)
+userActivitySchema.index({ sessionId: 1, eventType: 1, timestamp: 1 });
+// Per-product event aggregation — trending score recalc, also-viewed product fan-out
 userActivitySchema.index({ productId: 1, eventType: 1, timestamp: -1 });
 // TTL index: auto-expire raw activity logs after 90 days to keep collection lean
 userActivitySchema.index({ timestamp: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 });

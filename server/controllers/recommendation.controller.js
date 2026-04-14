@@ -1,4 +1,8 @@
 const recommendationService = require("../services/recommendation.service");
+const forYouService = require("../services/forYou.service");
+const discoverService = require("../services/discover.service");
+const alsoViewedService = require("../services/alsoViewed.service");
+const checkoutUpsellService = require("../services/checkoutUpsell.service");
 
 const resolveLimit = (limit, fallback) =>
   recommendationService.normalizeLimit(limit, fallback);
@@ -79,6 +83,39 @@ exports.getDiscoverRecommendations = async (req, res) => {
   }
 };
 
+exports.getDiscoverFeed = async (req, res) => {
+  try {
+    const userId = req.user?.id ?? null;
+    const { cursor = null, limit, exclude } = req.query;
+    const excludeIds = parseExcludeIds(exclude);
+
+    const result = await discoverService.getDiscoverFeed({
+      userId,
+      cursor: cursor || null,
+      limit: Number(limit) || 12,
+      excludeIds,
+    });
+
+    return res.status(200).json(result);
+  } catch (_error) {
+    return res.status(500).json({ message: "Failed to load discover feed" });
+  }
+};
+
+exports.getTopPicksForUser = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const excludeIds = parseExcludeIds(req.query.exclude);
+    const result = await forYouService.getTopPicksForUser({ userId, excludeIds });
+    return res.status(200).json(result);
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res
+      .status(statusCode)
+      .json({ message: error.message || "Failed to load top picks" });
+  }
+};
+
 exports.getTrendingWithRanks = async (req, res) => {
   try {
     const limit = Math.min(Math.max(1, Number(req.query.limit) || 20), 20);
@@ -89,6 +126,48 @@ exports.getTrendingWithRanks = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Failed to load trending products" });
+  }
+};
+
+exports.getCheckoutUpsell = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const cartProductIds = req.query.cartProductIds
+      ? String(req.query.cartProductIds).split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
+
+    const result = await checkoutUpsellService.getCheckoutUpsell({
+      userId,
+      cartProductIds,
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res
+      .status(statusCode)
+      .json({ message: error.message || "Failed to load upsell recommendations" });
+  }
+};
+
+exports.getAlsoViewed = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const userId = req.user?.id ?? null;
+    const excludeIds = parseExcludeIds(req.query.exclude);
+
+    const result = await alsoViewedService.getAlsoViewed({
+      productId,
+      userId,
+      excludeIds,
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res
+      .status(statusCode)
+      .json({ message: error.message || "Failed to load also-viewed products" });
   }
 };
 

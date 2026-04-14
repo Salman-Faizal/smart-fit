@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, assetUrl } from "../../lib/api";
+import { trackActivity } from "../../lib/trackActivity";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -171,6 +172,43 @@ function StepIndicator({ currentStep }) {
         );
       })}
     </div>
+  );
+}
+
+// ─── Upsell Card ──────────────────────────────────────────────────────────────
+
+function UpsellCard({ product, onAdd, adding, added }) {
+  return (
+    <article className="flex w-40 flex-shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md sm:w-44">
+      <Link to={`/products/${product._id}`} className="block flex-shrink-0">
+        <img
+          src={
+            assetUrl(product.images?.[0]) ||
+            "https://placehold.co/176x128?text=+"
+          }
+          alt={product.name}
+          className="h-32 w-full object-cover sm:h-36"
+        />
+      </Link>
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        <p className="line-clamp-2 text-xs font-semibold leading-tight text-slate-800">
+          {product.name}
+        </p>
+        <p className="text-sm font-bold text-amber-600">${product.price}</p>
+        <button
+          type="button"
+          onClick={onAdd}
+          disabled={adding || added}
+          className={`mt-auto w-full rounded-xl py-1.5 text-xs font-semibold transition disabled:cursor-default ${
+            added
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-60"
+          }`}
+        >
+          {adding ? "Adding…" : added ? "✓ Added" : "+ Add to Cart"}
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -513,6 +551,12 @@ export default function CheckoutPage() {
   // Result screen state (set when returning from Stripe redirect)
   const [checkoutResult, setCheckoutResult] = useState(null);
 
+  // Upsell section state
+  const [upsellProducts, setUpsellProducts] = useState([]);
+  const [upsellHasWishlist, setUpsellHasWishlist] = useState(false);
+  // productId → "adding" | "added" | undefined
+  const [upsellCartState, setUpsellCartState] = useState({});
+
   // ── Data loading ────────────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
@@ -529,6 +573,52 @@ export default function CheckoutPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // ── Upsell loader — fires once cart is ready and has items ─────────────────
+  // Non-critical: failures are silently swallowed so checkout is never blocked.
+
+  useEffect(() => {
+    if (!cart?.items?.length) return;
+
+    const cartProductIds = cart.items
+      .map((item) => item.product?._id)
+      .filter(Boolean)
+      .join(",");
+
+    api
+      .getCheckoutUpsell(cartProductIds ? { cartProductIds } : {})
+      .then((data) => {
+        setUpsellProducts(data.products || []);
+        setUpsellHasWishlist(data.hasWishlistItems || false);
+      })
+      .catch(() => {
+        // Upsell is decorative — never block the checkout flow
+      });
+  }, [cart]);
+
+  // ── Upsell add-to-cart (stays on checkout page) ─────────────────────────────
+
+  const handleUpsellAdd = useCallback(
+    async (productId) => {
+      if (upsellCartState[productId]) return; // already in flight or done
+      setUpsellCartState((prev) => ({ ...prev, [productId]: "adding" }));
+      try {
+        await api.addToCart({ productId, quantity: 1 });
+        setUpsellCartState((prev) => ({ ...prev, [productId]: "added" }));
+        // Refresh cart totals; remove the added product from the upsell row
+        await loadData();
+        setUpsellProducts((prev) => prev.filter((p) => p._id !== productId));
+      } catch {
+        // Silent — the user can navigate to the product page to add manually
+        setUpsellCartState((prev) => {
+          const next = { ...prev };
+          delete next[productId];
+          return next;
+        });
+      }
+    },
+    [upsellCartState, loadData],
+  );
 
   // ── Stripe return URL handler ───────────────────────────────────────────────
 
@@ -564,6 +654,8 @@ export default function CheckoutPage() {
               orderId,
               order,
             });
+            // Track confirmed purchase for each product in the order
+            trackOrderPurchases(order.items);
             await loadData();
           } else {
             setCheckoutResult({
@@ -656,6 +748,19 @@ export default function CheckoutPage() {
     }
   };
 
+  // ── Purchase tracking helper ────────────────────────────────────────────────
+  // Fires a fire-and-forget 'purchase' event for each product in the order.
+  // Safe to call multiple times — trackActivity itself is idempotent/silent.
+
+  const trackOrderPurchases = useCallback((orderItems) => {
+    (orderItems || []).forEach((item) => {
+      const productId = item.product?._id ?? item.product;
+      if (productId) {
+        trackActivity("purchase", String(productId));
+      }
+    });
+  }, []);
+
   // ── Checkout handler ────────────────────────────────────────────────────────
 
   const handlePlaceOrder = async () => {
@@ -681,6 +786,9 @@ export default function CheckoutPage() {
         return;
       }
 
+      // Track purchase intent for manual/bank orders (payment still pending,
+      // but the order signals strong buying intent used by recommendation engine)
+      trackOrderPurchases(order.items);
       setManualOrderId(order._id);
     } catch (err) {
       setError(err.message || "Checkout failed. Please try again.");
@@ -1038,6 +1146,47 @@ export default function CheckoutPage() {
           </div>
         </aside>
       </div>
+
+      {/* ── Upsell Section — "Before You Go" ──────────────────────────────── */}
+      {upsellProducts.length > 0 && hasItems ? (
+        <div className="mt-10 space-y-4">
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-100" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+              Before You Go
+            </span>
+            <div className="h-px flex-1 bg-slate-100" />
+          </div>
+
+          <div className="space-y-1">
+            {upsellHasWishlist ? (
+              <p className="text-sm font-semibold text-amber-600">
+                ⚡ Still thinking about these?
+              </p>
+            ) : null}
+            <h3 className="text-base font-semibold text-slate-800">
+              You Might Want These Too
+            </h3>
+            <p className="text-xs text-slate-400">
+              Add to your order without leaving the cart
+            </p>
+          </div>
+
+          {/* Horizontal scroll row — hidden scrollbar, finger-scroll on mobile */}
+          <div className="flex gap-3 overflow-x-auto pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {upsellProducts.map((product) => (
+              <UpsellCard
+                key={product._id}
+                product={product}
+                onAdd={() => handleUpsellAdd(product._id)}
+                adding={upsellCartState[product._id] === "adding"}
+                added={upsellCartState[product._id] === "added"}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

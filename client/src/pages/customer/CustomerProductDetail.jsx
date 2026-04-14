@@ -18,6 +18,7 @@ export default function CustomerProductDetail() {
   const [alsoViewedRecommendations, setAlsoViewedRecommendations] = useState(
     [],
   );
+  const [coViewerCount, setCoViewerCount] = useState(0);
   const [wishlisted, setWishlisted] = useState(false);
 
   useEffect(() => {
@@ -28,8 +29,9 @@ export default function CustomerProductDetail() {
         const data = await api.getProductById(id);
         setProduct(data);
         setQuantity(1);
-        const alsoViewedData = await api.getAlsoViewedRecommendations(id);
-        setAlsoViewedRecommendations(alsoViewedData.recommendations || []);
+        const alsoViewedData = await api.getAlsoViewed(id);
+        setAlsoViewedRecommendations(alsoViewedData.products || []);
+        setCoViewerCount(alsoViewedData.coViewerCount || 0);
         // Fire view tracking after product is confirmed loaded
         trackActivity("view", id);
       } catch (err) {
@@ -188,11 +190,22 @@ export default function CustomerProductDetail() {
         </div>
       </section>
 
-      <RecommendationSection
-        title="Customers also viewed"
-        badge="Popular with similar users"
-        products={alsoViewedRecommendations}
-      />
+      {alsoViewedRecommendations.length > 0 ? (
+        <div className="space-y-3">
+          {coViewerCount > 0 ? (
+            <p className="text-xs text-slate-400 italic">
+              {coViewerCount.toLocaleString()} people viewed this after viewing{" "}
+              <span className="font-medium text-slate-500">{product.name}</span>
+            </p>
+          ) : null}
+          <RecommendationSection
+            title="Customers Also Viewed"
+            badge="Popular with similar users"
+            products={alsoViewedRecommendations}
+            sectionId="also-viewed"
+          />
+        </div>
+      ) : null}
     </section>
   );
 }

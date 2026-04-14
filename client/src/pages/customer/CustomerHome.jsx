@@ -1,12 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import ProductCard from "../../components/products/ProductCard";
+import { useEffect, useMemo, useState } from "react";
 import RecommendationSection from "../../components/products/RecommendationSection";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingState,
-} from "../../components/common/StatusState";
+import InfiniteScrollFeed from "../../components/products/InfiniteScrollFeed";
 import { useProducts } from "../../hooks/useProducts";
+import { useAuth } from "../../hooks/useAuth";
 import { api } from "../../lib/api";
 import heroImage from "../../assets/hero.png";
 import aboutImage from "../../assets/about.jpg";
@@ -14,7 +10,6 @@ import QuizFloatingCTA from "../../components/recs/QuizFloatingCTA";
 
 const SATISFACTION_RATE = 95;
 const FALLBACK_REGISTERED_USERS = 250;
-const BASE_VISIBLE = 9;
 
 /**
  * Seeded Fisher-Yates shuffle using a simple LCG.
@@ -49,17 +44,20 @@ function formatCompactCount(value) {
 }
 
 export default function CustomerHome() {
+  const { isAuthenticated } = useAuth();
+
   const [trendingRaw, setTrendingRaw] = useState([]);
-  const [forYou, setForYou] = useState([]);
-  const [discoverFeed, setDiscoverFeed] = useState([]);
+
+  // Personalized "Top Picks For You" — only for authenticated users
+  const [topPicks, setTopPicks] = useState([]);
+  const [topPicksLabel, setTopPicksLabel] = useState("Top Picks For You");
+  const [topPicksIsColdStart, setTopPicksIsColdStart] = useState(false);
   const [registeredUsers, setRegisteredUsers] = useState(
     FALLBACK_REGISTERED_USERS,
   );
   const [totalProducts, setTotalProducts] = useState(0);
-  const [visibleCount, setVisibleCount] = useState(BASE_VISIBLE);
-  const loaderRef = useRef(null);
 
-  const { products, loading, error } = useProducts();
+  const { products } = useProducts();
 
   // Shuffle the top-20 trending list on every page load using a seeded
   // random so the same products appear but never in strict rank order.
@@ -68,9 +66,13 @@ export default function CustomerHome() {
     [trendingRaw],
   );
 
-  const displayDiscoverFeed = useMemo(() => {
-    return discoverFeed.length ? discoverFeed : products;
-  }, [discoverFeed, products]);
+  // Stable comma-separated exclude string for InfiniteScrollFeed.
+  // Memoized so it only changes when the arrays themselves change (after load),
+  // preventing the feed from resetting on every re-render.
+  const discoverExcludeIds = useMemo(
+    () => [...trendingRaw, ...topPicks].map((p) => p._id).join(","),
+    [trendingRaw, topPicks],
+  );
 
   const heroUsers = formatCompactCount(registeredUsers);
   const heroProducts = formatCompactCount(totalProducts || products.length);
@@ -105,60 +107,37 @@ export default function CustomerHome() {
   }, []);
 
   useEffect(() => {
-    const loadRecommendations = async () => {
+    api
+      .getTrendingWithRanks({ limit: 20 })
+      .then((data) => setTrendingRaw(data.products || []))
+      .catch(() => setTrendingRaw([]));
+  }, []);
+
+  // Load top picks after trending is ready so we can exclude those IDs.
+  // Runs whenever auth state changes (login/logout) or trendingRaw is first set.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setTopPicks([]);
+      return;
+    }
+
+    const load = async () => {
       try {
-        // Use the ranked trending endpoint (top 20, badge metadata included)
-        const trendingData = await api.getTrendingWithRanks({ limit: 20 });
-        const trendingItems = trendingData.products || [];
-        const trendingIds = trendingItems.map((item) => item._id).join(",");
-
-        const forYouData = await api.getForYouRecommendations({
-          limit: 12,
-          exclude: trendingIds,
-        });
-        const forYouItems = forYouData.recommendations || [];
-
-        const usedIds = [...trendingItems, ...forYouItems]
-          .map((item) => item._id)
-          .join(",");
-
-        const discoverData = await api.getDiscoverRecommendations({
-          limit: 48,
-          exclude: usedIds,
-        });
-
-        setTrendingRaw(trendingItems);
-        setForYou(forYouItems);
-        setDiscoverFeed(discoverData.recommendations || []);
+        const excludeIds = trendingRaw.map((p) => p._id).join(",");
+        const data = await api.getTopPicksForUser(
+          excludeIds ? { exclude: excludeIds } : {},
+        );
+        setTopPicks(data.products || []);
+        setTopPicksLabel(data.label || "Top Picks For You");
+        setTopPicksIsColdStart(data.isColdStart ?? false);
       } catch {
-        setTrendingRaw([]);
-        setForYou([]);
-        setDiscoverFeed([]);
+        setTopPicks([]);
       }
     };
 
-    loadRecommendations();
-  }, []);
+    load();
+  }, [isAuthenticated, trendingRaw]);
 
-  useEffect(() => {
-    const node = loaderRef.current;
-    if (!node) return;
-    if (visibleCount >= displayDiscoverFeed.length) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisibleCount((prev) =>
-            Math.min(prev + 9, displayDiscoverFeed.length),
-          );
-        }
-      },
-      { rootMargin: "200px" },
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [displayDiscoverFeed.length, visibleCount]);
 
   return (
     <section className="space-y-14">
@@ -211,50 +190,39 @@ export default function CustomerHome() {
         </div>
       </div>
 
+      {/* Top Picks For You — only rendered for authenticated users */}
+      {isAuthenticated && topPicks.length > 0 ? (
+        <div id="top-picks">
+          <RecommendationSection
+            title={topPicksLabel}
+            subtitle={
+              topPicksIsColdStart
+                ? "Based on what's popular right now — start browsing to personalise this."
+                : "Scored from your browsing, wishlist, and purchase history."
+            }
+            badge={topPicksIsColdStart ? "Curated" : "For You"}
+            tone="personal"
+            products={topPicks}
+            sectionId="top-picks"
+            getProductCaption={(product) => product.reason ?? null}
+          />
+        </div>
+      ) : null}
+
       <div id="trending">
         <RecommendationSection
           title="Trending Now"
           subtitle="Global best-performers driven by store-wide views and purchases."
           badge="Popular"
           products={trending}
+          sectionId="trending"
         />
       </div>
 
-      <div id="for-you">
-        <RecommendationSection
-          title="For You"
-          subtitle="Personalized picks based on your recent browsing and shopping signals."
-          badge="Personalized"
-          tone="personal"
-          products={forYou}
-        />
-      </div>
-
-      <div id="discover" className="space-y-5">
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-600">
-            Discover More
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            A mixed feed balancing relevant picks, rising products, and fresh
-            categories to expand discovery.
-          </p>
-        </div>
-
-        {loading && <LoadingState label="Loading..." />}
-        {error && <ErrorState message={error} />}
-        {!loading && !error && !displayDiscoverFeed.length ? (
-          <EmptyState message="No products available yet." />
-        ) : null}
-
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {displayDiscoverFeed.slice(0, visibleCount).map((p) => (
-            <ProductCard key={p._id} product={p} to={`/products/${p._id}`} />
-          ))}
-        </div>
-
-        <div ref={loaderRef} className="h-10" />
-      </div>
+      <InfiniteScrollFeed
+        excludeIds={discoverExcludeIds}
+        subtitle="A mixed feed balancing relevant picks, rising products, and fresh categories to expand discovery."
+      />
 
       <div id="about" className="scroll-mt-28 space-y-4">
         <h2 className="text-md font-semibold uppercase tracking-wide text-amber-600">
