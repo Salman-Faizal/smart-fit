@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuth } from "../../hooks/useAuth";
-import { Camera, X } from "lucide-react";
+import { Camera, X, LogOut } from "lucide-react";
 
 function getInitials(name) {
   if (!name) return "A";
@@ -9,7 +10,8 @@ function getInitials(name) {
 }
 
 export default function AdminProfilePage() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ msg: "", type: "success" });
@@ -245,6 +247,22 @@ export default function AdminProfilePage() {
             {cacheLoading ? "Clearing..." : "Clear Recommendation Cache"}
           </button>
         </div>
+      </div>
+
+      {/* Logout */}
+      <div className="rounded-2xl border border-red-100 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900 mb-1">Sign Out</h2>
+        <p className="text-sm text-slate-500 mb-4">
+          You will be logged out and redirected to the sign-in page.
+        </p>
+        <button
+          type="button"
+          onClick={() => { logout(); navigate("/signin", { replace: true }); }}
+          className="flex items-center gap-2 rounded-xl border border-red-200 px-5 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign Out
+        </button>
       </div>
 
       {/* Toast */}
