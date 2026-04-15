@@ -59,6 +59,16 @@ const productSchema = new mongoose.Schema(
       default: 0,
       index: true,
     },
+    sizes: {
+      type: [String],
+      default: [],
+    },
+    status: {
+      type: String,
+      enum: ["active", "inactive", "deleted"],
+      default: "active",
+      index: true,
+    },
   },
   {
     timestamps: true,

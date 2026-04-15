@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(xargs grep:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(node -e \"const { ShieldBan, ShieldCheck } = require\\('lucide-react'\\); console.log\\(typeof ShieldBan, typeof ShieldCheck\\)\")",
+      "Bash(node -e \"const l = require\\('lucide-react'\\); console.log\\(Object.keys\\(l\\).filter\\(k => k.includes\\('Shield'\\)\\)\\)\")",
+      "Bash(node -e ':*)",
+      "Bash(node -e \"const svc = require\\('./services/admin.service'\\); console.log\\(Object.keys\\(svc\\)\\);\")",
+      "Bash(npm list *)",
+      "Bash(node -e \"const svc = require\\('./services/admin.service'\\); const keys = Object.keys\\(svc\\); console.log\\('total:', keys.length\\); console.log\\(keys.filter\\(k => k.startsWith\\('getReport'\\)\\)\\);\")"
     ]
   }
 }

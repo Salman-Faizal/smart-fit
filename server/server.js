@@ -6,8 +6,15 @@ const { updateTrendingScores } = require("./services/trending.service");
 
 const PORT = process.env.PORT || 3000;
 
-// Connect DB
-connectDB();
+// Connect DB and seed admin settings
+connectDB().then(async () => {
+  try {
+    const { seedAdminSettings } = require("./services/admin.service");
+    await seedAdminSettings();
+  } catch (err) {
+    console.error("[startup] Failed to seed admin settings:", err.message);
+  }
+});
 
 // Schedule trending score recalculation every 6 hours
 // Cron: minute hour day month weekday

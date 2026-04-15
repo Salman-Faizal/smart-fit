@@ -62,6 +62,13 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: "Invalid Credentials" });
     }
 
+    if (user.isBanned) {
+      return res.status(403).json({ message: "Your account has been suspended. Please contact support." });
+    }
+
+    user.lastLogin = new Date();
+    await user.save();
+
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,

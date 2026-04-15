@@ -218,6 +218,130 @@ export const api = {
       `/admin/dashboard/metrics${queryString ? `?${queryString}` : ""}`,
     );
   },
+  // Admin Orders
+  getAdminOrders: (params = {}) => {
+    const query = new URLSearchParams(params);
+    return request(`/admin/orders?${query.toString()}`);
+  },
+  getAdminOrderById: (id) => request(`/admin/orders/${id}`),
+  updateAdminOrderStatus: (id, status) =>
+    request(`/admin/orders/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    }),
+  getAdminPendingBankOrders: (params = {}) => {
+    const query = new URLSearchParams(params);
+    return request(`/admin/orders/pending-bank?${query.toString()}`);
+  },
+  approveBankPayment: (id) =>
+    request(`/admin/orders/${id}/approve-bank`, { method: "PUT" }),
+  rejectBankPayment: (id) =>
+    request(`/admin/orders/${id}/reject-bank`, { method: "PUT" }),
+  // Admin Customers
+  getAdminCustomers: (params = {}) => {
+    const query = new URLSearchParams(params);
+    return request(`/admin/customers?${query.toString()}`);
+  },
+  getAdminCustomerById: (id) => request(`/admin/customers/${id}`),
+  toggleCustomerBan: (id, isBanned) =>
+    request(`/admin/customers/${id}/ban`, {
+      method: "PUT",
+      body: JSON.stringify({ isBanned }),
+    }),
+  // Admin Profile
+  getAdminProfile: () => request("/admin/profile"),
+  updateAdminProfile: (payload) =>
+    request("/admin/profile", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  changeAdminPassword: (payload) =>
+    request("/admin/profile/change-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  uploadAdminAvatar: (formData) =>
+    request("/admin/profile/avatar", {
+      method: "POST",
+      body: formData,
+    }),
+  // Admin Settings
+  getAdminSettings: () => request("/admin/settings"),
+  updateAdminSettings: (payload) =>
+    request("/admin/settings", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  // Admin Categories
+  getAdminCategories: () => request("/admin/categories"),
+  createAdminCategory: (name) =>
+    request("/admin/categories", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+  updateAdminCategory: (id, name) =>
+    request(`/admin/categories/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ name }),
+    }),
+  deleteAdminCategory: (id) =>
+    request(`/admin/categories/${id}`, { method: "DELETE" }),
+  // Admin Products (paginated)
+  getAdminProducts: (params = {}) => {
+    const query = new URLSearchParams(params);
+    return request(`/admin/products?${query.toString()}`);
+  },
+  adminSoftDeleteProduct: (id) =>
+    request(`/admin/products/${id}`, { method: "DELETE" }),
+  bulkCreateProducts: (products) =>
+    request("/admin/products/bulk", {
+      method: "POST",
+      body: JSON.stringify({ products }),
+    }),
+  // Admin Utilities
+  recalculateTrending: () =>
+    request("/admin/recalculate-trending", { method: "POST" }),
+  clearRecommendationCache: () =>
+    request("/admin/clear-cache", { method: "POST" }),
+  // Dashboard v2 cards
+  getDashboardWeeklyStats: () => request("/admin/dashboard/weekly-stats"),
+  getDashboardRevenueChart: (params = {}) => {
+    const query = new URLSearchParams(params);
+    return request(`/admin/dashboard/revenue-chart?${query.toString()}`);
+  },
+  getDashboardTopCategoriesDonut: (limit = 8) =>
+    request(`/admin/dashboard/top-categories-donut?limit=${limit}`),
+  getDashboardMonthlyTarget: () => request("/admin/dashboard/monthly-target"),
+  getDashboardConversionFunnel: () => request("/admin/dashboard/conversion-funnel"),
+  getDashboardTopProducts: (limit = 5) =>
+    request(`/admin/dashboard/top-products?limit=${limit}`),
+  getDashboardLowStock: () => request("/admin/dashboard/low-stock"),
+  // Reports
+  getReportSalesSummary: (params = {}) => {
+    const query = new URLSearchParams(params);
+    return request(`/admin/reports/sales-summary?${query.toString()}`);
+  },
+  getReportRevenueBreakdown: (params = {}) => {
+    const query = new URLSearchParams(params);
+    return request(`/admin/reports/revenue-breakdown?${query.toString()}`);
+  },
+  getReportTopProducts: (params = {}) => {
+    const query = new URLSearchParams(params);
+    return request(`/admin/reports/top-products?${query.toString()}`);
+  },
+  getReportCategoryPerformance: (params = {}) => {
+    const query = new URLSearchParams(params);
+    return request(`/admin/reports/category-performance?${query.toString()}`);
+  },
+  getReportOrderStatus: (params = {}) => {
+    const query = new URLSearchParams(params);
+    return request(`/admin/reports/order-status?${query.toString()}`);
+  },
+  getReportCustomerInsights: (params = {}) => {
+    const query = new URLSearchParams(params);
+    return request(`/admin/reports/customer-insights?${query.toString()}`);
+  },
+  getReportLowStockSnapshot: () => request("/admin/reports/low-stock-snapshot"),
   // Wishlist
   getWishlist: () => request("/users/me/wishlist"),
   // Profile update

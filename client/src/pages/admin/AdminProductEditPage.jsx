@@ -14,16 +14,13 @@ export default function AdminProductEditPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const loadWithoutIncrementingViews = async () => {
+    const load = async () => {
       try {
         setLoading(true);
-        const data = await api.getProducts({ limit: 1000, page: 1 });
+        // Use admin endpoint — returns deleted/inactive products too, no view tracking
+        const data = await api.getAdminProducts({ limit: 1000, page: 1 });
         const selected = (data.products || []).find((item) => item._id === id);
-
-        if (!selected) {
-          throw new Error("Product not found in admin listing");
-        }
-
+        if (!selected) throw new Error("Product not found");
         setProduct(selected);
       } catch (err) {
         setError(err.message || "Unable to load product");
@@ -31,8 +28,7 @@ export default function AdminProductEditPage() {
         setLoading(false);
       }
     };
-
-    loadWithoutIncrementingViews();
+    load();
   }, [id]);
 
   const handleSubmit = async (payload) => {
@@ -48,7 +44,7 @@ export default function AdminProductEditPage() {
     }
   };
 
-  if (loading) return <LoadingState label="Loading admin product details..." />;
+  if (loading) return <LoadingState label="Loading product details..." />;
   if (error) return <ErrorState message={error} />;
 
   return (
@@ -63,6 +59,10 @@ export default function AdminProductEditPage() {
         <h2 className="mt-2 text-2xl font-bold text-slate-900">Edit Product</h2>
       </div>
 
+      {error ? (
+        <p className="rounded-lg bg-red-100 p-3 text-sm text-red-600">{error}</p>
+      ) : null}
+
       <ProductForm
         submitLabel="Save Changes"
         onSubmit={handleSubmit}
@@ -74,6 +74,8 @@ export default function AdminProductEditPage() {
           price: product.price,
           stock: product.stock,
           description: product.description || "",
+          sizes: product.sizes || [],
+          status: product.status || "active",
         }}
       />
     </section>

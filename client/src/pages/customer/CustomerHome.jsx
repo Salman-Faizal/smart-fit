@@ -58,7 +58,8 @@ function useCountUp(target, duration = 1200, started = false) {
     if (!started || !target) return;
 
     // Extract numeric part and suffix
-    const numericTarget = parseFloat(String(target).replace(/[^0-9.]/g, "")) || 0;
+    const numericTarget =
+      parseFloat(String(target).replace(/[^0-9.]/g, "")) || 0;
     const suffix = String(target).replace(/[0-9.]/g, "");
 
     let start = null;
@@ -127,8 +128,17 @@ const CATEGORIES = [
     label: "Formal",
     route: "/search?category=Formal",
     icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-        <path d="M6 2L3 7v13a2 2 0 002 2h14a2 2 0 002-2V7l-3-5z" /><line x1="3" y1="7" x2="21" y2="7" /><path d="M16 7a4 4 0 01-8 0" />
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      >
+        <path d="M6 2L3 7v13a2 2 0 002 2h14a2 2 0 002-2V7l-3-5z" />
+        <line x1="3" y1="7" x2="21" y2="7" />
+        <path d="M16 7a4 4 0 01-8 0" />
       </svg>
     ),
   },
@@ -136,7 +146,14 @@ const CATEGORIES = [
     label: "Casual",
     route: "/search?category=Casual",
     icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      >
         <path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z" />
       </svg>
     ),
@@ -145,8 +162,16 @@ const CATEGORIES = [
     label: "Sportswear",
     route: "/search?category=Sportswear",
     icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-        <circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" />
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 8v4l3 3" />
       </svg>
     ),
   },
@@ -154,8 +179,16 @@ const CATEGORIES = [
     label: "Accessories",
     route: "/search?category=Accessories",
     icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-        <circle cx="12" cy="12" r="3" /><path d="M19.07 4.93A10 10 0 003.05 13.77M4.93 19.07a10 10 0 0015.06-9.07" />
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      >
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.07 4.93A10 10 0 003.05 13.77M4.93 19.07a10 10 0 0015.06-9.07" />
       </svg>
     ),
   },
@@ -163,27 +196,93 @@ const CATEGORIES = [
     label: "New Arrivals",
     route: "/search?sort=date_desc",
     icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="16" />
+        <line x1="8" y1="12" x2="16" y2="12" />
       </svg>
     ),
   },
 ];
 
+const bannerIcons = {
+  truck: (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="1" y="6" width="13" height="10" rx="2" />
+      <path d="M14 10h4l3 3v3h-7z" />
+      <circle cx="5.5" cy="18.5" r="1.5" />
+      <circle cx="17.5" cy="18.5" r="1.5" />
+    </svg>
+  ),
+
+  return: (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 7v4h4" />
+      <path d="M3 11a8 8 0 1 0 2-5" />
+    </svg>
+  ),
+
+  lock: (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path d="M8 11V7a4 4 0 1 1 8 0v4" />
+    </svg>
+  ),
+};
+
 // ─── Promo Banner ─────────────────────────────────────────────────────────────
 
 function PromoBanner() {
   return (
-    <div className="rounded-2xl bg-slate-900 px-4 py-5 text-white">
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-0 divide-y sm:divide-y-0 sm:divide-x divide-slate-700">
+    <div className="rounded-2xl bg-gray-600 px-4 py-5 text-white">
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-0 divide-y sm:divide-y-0 sm:divide-x divide-gray-400">
         {[
-          { icon: "🚚", text: "FREE DELIVERY on orders over LKR 5,000" },
-          { icon: "↩️", text: "EASY RETURNS within 14 days" },
-          { icon: "🔒", text: "SECURE CHECKOUT guaranteed" },
+          {
+            icon: bannerIcons.truck,
+            text: "FREE DELIVERY on orders over LKR 5,000",
+          },
+          { icon: bannerIcons.return, text: "EASY RETURNS within 14 days" },
+          { icon: bannerIcons.lock, text: "SECURE CHECKOUT guaranteed" },
         ].map((item, i) => (
-          <div key={i} className="flex items-center gap-2.5 w-full sm:w-auto sm:flex-1 justify-center py-2 sm:py-0 sm:px-6 text-center">
+          <div
+            key={i}
+            className="flex items-center gap-2.5 w-full sm:w-auto sm:flex-1 justify-center py-2 sm:py-0 sm:px-6 text-center"
+          >
             <span className="text-xl leading-none">{item.icon}</span>
-            <span className="text-xs font-semibold tracking-wide text-slate-200">{item.text}</span>
+            <span className="text-xs font-semibold tracking-wide text-slate-200">
+              {item.text}
+            </span>
           </div>
         ))}
       </div>
@@ -201,7 +300,9 @@ export default function CustomerHome() {
   const [topPicks, setTopPicks] = useState([]);
   const [topPicksLabel, setTopPicksLabel] = useState("Top Picks For You");
   const [topPicksIsColdStart, setTopPicksIsColdStart] = useState(false);
-  const [registeredUsers, setRegisteredUsers] = useState(FALLBACK_REGISTERED_USERS);
+  const [registeredUsers, setRegisteredUsers] = useState(
+    FALLBACK_REGISTERED_USERS,
+  );
   const [totalProducts, setTotalProducts] = useState(0);
   const [heroVisible, setHeroVisible] = useState(false);
 
@@ -214,7 +315,10 @@ export default function CustomerHome() {
     return () => clearTimeout(t);
   }, []);
 
-  const trending = useMemo(() => seededShuffle(trendingRaw, PAGE_LOAD_SEED), [trendingRaw]);
+  const trending = useMemo(
+    () => seededShuffle(trendingRaw, PAGE_LOAD_SEED),
+    [trendingRaw],
+  );
 
   const discoverExcludeIds = useMemo(
     () => [...trendingRaw, ...topPicks].map((p) => p._id).join(","),
@@ -239,8 +343,14 @@ export default function CustomerHome() {
           (await api.getPublicStats?.()) ||
           (await api.getSiteStats?.());
 
-        const users = Number(overview?.users ?? overview?.registeredUsers ?? overview?.userCount);
-        const productsCount = Number(overview?.products ?? overview?.productCount ?? overview?.totalProducts);
+        const users = Number(
+          overview?.users ?? overview?.registeredUsers ?? overview?.userCount,
+        );
+        const productsCount = Number(
+          overview?.products ??
+            overview?.productCount ??
+            overview?.totalProducts,
+        );
         if (users) setRegisteredUsers(users);
         if (productsCount) setTotalProducts(productsCount);
       } catch {
@@ -258,12 +368,17 @@ export default function CustomerHome() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) { setTopPicks([]); return; }
+    if (!isAuthenticated) {
+      setTopPicks([]);
+      return;
+    }
 
     const load = async () => {
       try {
         const excludeIds = trendingRaw.map((p) => p._id).join(",");
-        const data = await api.getTopPicksForUser(excludeIds ? { exclude: excludeIds } : {});
+        const data = await api.getTopPicksForUser(
+          excludeIds ? { exclude: excludeIds } : {},
+        );
         setTopPicks(data.products || []);
         setTopPicksLabel(data.label || "Top Picks For You");
         setTopPicksIsColdStart(data.isColdStart ?? false);
@@ -294,11 +409,12 @@ export default function CustomerHome() {
               Premium Menswear
             </p>
             <h1 className="text-4xl sm:text-5xl font-bold font-montserrat leading-tight">
-              Handpicked With{" "}
-              <span className="text-amber-500">You</span> in Mind
+              Handpicked With <span className="text-amber-500">You</span> in
+              Mind
             </h1>
             <p className="mt-4 text-slate-300 text-base leading-relaxed max-w-sm">
-              Explore curated collections tailored to your taste, backed by real user trust.
+              Explore curated collections tailored to your taste, backed by real
+              user trust.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-8">
@@ -308,7 +424,9 @@ export default function CustomerHome() {
                 { value: animSatisfaction, label: "Satisfaction Rate" },
               ].map((stat) => (
                 <div key={stat.label}>
-                  <p className="text-3xl font-bold font-montserrat tabular-nums">{stat.value}</p>
+                  <p className="text-3xl font-bold font-montserrat tabular-nums">
+                    {stat.value}
+                  </p>
                   <p className="mt-0.5 text-sm text-slate-400">{stat.label}</p>
                 </div>
               ))}

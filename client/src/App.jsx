@@ -17,6 +17,12 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProductsPage from "./pages/admin/AdminProductsPage";
 import AdminProductCreatePage from "./pages/admin/AdminProductCreatePage";
 import AdminProductEditPage from "./pages/admin/AdminProductEditPage";
+import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
+import AdminCustomersPage from "./pages/admin/AdminCustomersPage";
+import AdminProfilePage from "./pages/admin/AdminProfilePage";
+import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
+import AdminHelpPage from "./pages/admin/AdminHelpPage";
+import AdminReportsPage from "./pages/admin/AdminReportsPage";
 
 function App() {
   return (
@@ -30,10 +36,7 @@ function App() {
             <Route path="/home" element={<CustomerHome />} />
             <Route path="/products/:id" element={<CustomerProductDetail />} />
             <Route path="/profile" element={<CustomerProfilePage />} />
-            <Route
-              path="/orders"
-              element={<Navigate to="/profile" replace />}
-            />
+            <Route path="/orders" element={<Navigate to="/profile" replace />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/search" element={<CustomerSearchResultsPage />} />
           </Route>
@@ -41,13 +44,17 @@ function App() {
 
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="products" element={<AdminProductsPage />} />
             <Route path="products/new" element={<AdminProductCreatePage />} />
-            <Route
-              path="products/edit/:id"
-              element={<AdminProductEditPage />}
-            />
+            <Route path="products/edit/:id" element={<AdminProductEditPage />} />
+            <Route path="orders" element={<AdminOrdersPage />} />
+            <Route path="customers" element={<AdminCustomersPage />} />
+            <Route path="profile" element={<AdminProfilePage />} />
+            <Route path="settings" element={<AdminSettingsPage />} />
+            <Route path="help" element={<AdminHelpPage />} />
+            <Route path="reports" element={<AdminReportsPage />} />
           </Route>
         </Route>
       </Route>

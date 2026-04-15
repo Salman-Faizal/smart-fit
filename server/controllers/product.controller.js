@@ -40,7 +40,7 @@ exports.createProduct = async (req, res) => {
 
 exports.getProducts = async (req, res) => {
   try {
-    let query = {};
+    let query = { status: { $ne: "deleted" } };
     const {
       category,
       search,
@@ -110,8 +110,7 @@ exports.getProducts = async (req, res) => {
         pages: Math.ceil(total / limitNumber),
       },
     });
-  } catch (err) {
-    console.error(err);
+  } catch (_err) {
     return res.status(500).json({ message: "Failed to fetch products" });
   }
 };
@@ -129,7 +128,7 @@ exports.getSingleProduct = async (req, res) => {
         )
       : await Product.findById(id);
 
-    if (!product) {
+    if (!product || product.status === "deleted") {
       return res.status(404).json({ message: "Product not found" });
     }
 

@@ -1,7 +1,8 @@
 const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 require("dotenv").config();
 
-const protect = (req, res, next) => {
+const protect = async (req, res, next) => {
   try {
     let token;
 
@@ -16,6 +17,13 @@ const protect = (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
+
+    if (decoded.role === "customer") {
+      const user = await User.findById(decoded.id).select("isBanned").lean();
+      if (user && user.isBanned) {
+        return res.status(403).json({ message: "Your account has been suspended." });
+      }
+    }
 
     next();
   } catch (err) {
