@@ -24,6 +24,7 @@ import AdminProfilePage from "./pages/admin/AdminProfilePage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import AdminHelpPage from "./pages/admin/AdminHelpPage";
 import AdminReportsPage from "./pages/admin/AdminReportsPage";
+import AdminForecastPage from "./pages/admin/AdminForecastPage";
 
 function App() {
   return (
@@ -57,6 +58,7 @@ function App() {
             <Route path="settings" element={<AdminSettingsPage />} />
             <Route path="help" element={<AdminHelpPage />} />
             <Route path="reports" element={<AdminReportsPage />} />
+            <Route path="forecast" element={<AdminForecastPage />} />
           </Route>
         </Route>
       </Route>

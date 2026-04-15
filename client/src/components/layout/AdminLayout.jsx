@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   Users,
   BarChart2,
+  TrendingDown,
   HelpCircle,
   Settings,
   UserCircle,
@@ -22,6 +23,7 @@ const PRIMARY_NAV = [
   { label: "Products", to: "/admin/products", icon: Package },
   { label: "Customers", to: "/admin/customers", icon: Users },
   { label: "Reports", to: "/admin/reports", icon: BarChart2 },
+  { label: "Forecast", to: "/admin/forecast", icon: TrendingDown },
 ];
 
 const SECONDARY_NAV = [
@@ -36,6 +38,7 @@ const PAGE_TITLES = {
   "/admin/products": "Products",
   "/admin/customers": "Customers",
   "/admin/reports": "Reports",
+  "/admin/forecast": "Inventory Forecast",
   "/admin/profile": "Profile",
   "/admin/help": "Help",
   "/admin/settings": "Settings",

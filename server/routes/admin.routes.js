@@ -2,6 +2,7 @@ const express = require("express");
 const { protect, authorize } = require("../middleware/auth.middleware");
 const { runUpload, uploadAvatar } = require("../middleware/upload.middleware");
 const adminController = require("../controllers/admin.controller");
+const forecastController = require("../controllers/forecast.controller");
 
 const router = express.Router();
 
@@ -55,6 +56,11 @@ router.get("/admin/products", ...admin, adminController.getProducts);
 router.post("/admin/products/bulk", ...admin, adminController.bulkCreateProducts);
 router.patch("/admin/products/:id/status", ...admin, adminController.updateProductStatus);
 router.delete("/admin/products/:id", ...admin, adminController.softDeleteProduct);
+
+// Forecast
+router.get("/admin/forecast/sales-trend", ...admin, forecastController.getSalesTrend);
+router.get("/admin/forecast", ...admin, forecastController.getForecast);
+router.post("/admin/seed-sales-data", ...admin, forecastController.runSeedSalesData);
 
 // Reports
 router.get("/admin/reports/sales-summary", ...admin, adminController.getReportSalesSummary);

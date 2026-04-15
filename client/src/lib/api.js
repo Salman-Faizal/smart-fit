@@ -398,4 +398,9 @@ export const api = {
     request("/users/me/account", {
       method: "DELETE",
     }),
+  // Inventory Forecast
+  getForecast: () => request("/admin/forecast"),
+  getForecastSalesTrend: () => request("/admin/forecast/sales-trend"),
+  runSeedSalesData: () =>
+    request("/admin/seed-sales-data", { method: "POST" }),
 };

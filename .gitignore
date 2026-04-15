@@ -2,3 +2,4 @@
 .env
 **/.env.local
 server/uploads/products
+PROJECT_SUMMARY.md
