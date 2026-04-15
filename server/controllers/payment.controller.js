@@ -95,6 +95,16 @@ exports.cancelStripeCheckoutOrder = async (req, res) => {
   }
 };
 
+exports.confirmStripeOrderPaid = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await paymentService.confirmStripeOrderPaid(req.user.id, orderId);
+    return res.status(200).json({ message: "Order confirmed as paid", order });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 exports.handleStripeWebhook = async (req, res) => {
   try {
     const signature = req.headers["stripe-signature"];

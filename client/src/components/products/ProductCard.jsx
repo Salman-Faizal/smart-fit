@@ -25,6 +25,8 @@ import { useAuth } from "../../hooks/useAuth";
 import { api } from "../../lib/api";
 import { trackActivity } from "../../lib/trackActivity";
 
+const PLACEHOLDER = "https://placehold.co/400x500?text=No+Image";
+
 // ─── Seeded helpers ───────────────────────────────────────────────────────────
 
 /** Simple deterministic hash for a string (non-negative). */
@@ -173,7 +175,7 @@ export default function ProductCard({
 
   return (
     <article
-      className={`group relative overflow-hidden rounded-xl bg-white shadow-sm transition-shadow hover:shadow-md ${
+      className={`group relative overflow-hidden rounded-xl bg-white shadow-sm hover:shadow-md ${
         isOutOfStock ? "opacity-70" : ""
       }`}
       style={{ cursor: "pointer" }}
@@ -191,10 +193,11 @@ export default function ProductCard({
       {/* ── Image area ───────────────────────────────────────────────────── */}
       <Link to={destination} className="relative block overflow-hidden bg-slate-100" style={{ paddingBottom: "115%" }}>
         <img
-          src={assetUrl(product.images?.[0]) || "https://placehold.co/480x550?text=Product"}
+          src={assetUrl(product.images?.[0]) || PLACEHOLDER}
           alt={product.name}
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          className="absolute inset-0 h-full w-full object-cover"
           loading="lazy"
+          onError={(e) => { e.target.onerror = null; e.target.src = PLACEHOLDER; }}
         />
 
         {/* Top-left stock badge */}
@@ -220,13 +223,13 @@ export default function ProductCard({
         ) : null}
 
         {/* Floating action row — appears on hover */}
-        <div className="absolute bottom-0 left-0 right-0 flex translate-y-1 items-center justify-center gap-2 px-3 pb-3 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 px-3 pb-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
           {/* Wishlist button */}
           <button
             type="button"
             onClick={handleWishlist}
             aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-            className={`flex h-9 w-9 items-center justify-center rounded-full shadow-md transition-all active:scale-95 ${
+            className={`flex h-9 w-9 items-center justify-center rounded-full shadow-md transition-colors active:scale-95 ${
               wishlisted
                 ? "bg-rose-500 text-white"
                 : "bg-white/95 text-slate-700 hover:bg-rose-50 hover:text-rose-500"
@@ -241,7 +244,7 @@ export default function ProductCard({
             onClick={handleAddToCart}
             disabled={isOutOfStock || cartState === "adding"}
             aria-label="Add to cart"
-            className={`flex h-9 w-9 items-center justify-center rounded-full shadow-md transition-all active:scale-95 ${
+            className={`flex h-9 w-9 items-center justify-center rounded-full shadow-md transition-colors active:scale-95 ${
               isOutOfStock
                 ? "cursor-not-allowed bg-slate-200 text-slate-400"
                 : cartState === "added"

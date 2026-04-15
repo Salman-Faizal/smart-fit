@@ -556,7 +556,19 @@ const deleteCategory = async (id) => {
 
 // ─── Products (admin) ─────────────────────────────────────────────────────────
 
-const getAdminProducts = async ({ page = 1, limit = 20, search, category, stockStatus, priceMin, priceMax, sortBy = "createdAt", sortDir = "desc" } = {}) => {
+const updateProductStatus = async (id, status) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) throw createHttpError(400, "Invalid product id");
+  if (!["active", "inactive"].includes(status)) throw createHttpError(400, "Status must be active or inactive");
+  const product = await Product.findOneAndUpdate(
+    { _id: id, status: { $ne: "deleted" } },
+    { status },
+    { new: true },
+  );
+  if (!product) throw createHttpError(404, "Product not found");
+  return product;
+};
+
+const getAdminProducts = async ({ page = 1, limit = 20, search, category, stockStatus, status, priceMin, priceMax, sortBy = "createdAt", sortDir = "desc" } = {}) => {
   const query = { status: { $ne: "deleted" } };
 
   if (search) {
@@ -564,6 +576,7 @@ const getAdminProducts = async ({ page = 1, limit = 20, search, category, stockS
     query.$or = [{ name: re }, { category: re }];
   }
   if (category) query.category = category;
+  if (status === "active" || status === "inactive") query.status = status;
   if (stockStatus === "inStock") query.stock = { $gt: 0 };
   if (stockStatus === "outOfStock") query.stock = { $lte: 0 };
   if (priceMin !== undefined || priceMax !== undefined) {
@@ -1107,6 +1120,7 @@ module.exports = {
   createCategory,
   updateCategory,
   deleteCategory,
+  updateProductStatus,
   getAdminProducts,
   bulkCreateProducts,
   softDeleteProduct,

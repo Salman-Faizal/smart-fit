@@ -30,7 +30,7 @@ import {
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const AMBER = "#d97706";
-const DONUT_COLORS = ["#d97706", "#f59e0b", "#fbbf24", "#b45309", "#92400e", "#f97316", "#ea580c", "#78350f"];
+const DONUT_COLORS = ["#fde68a", "#fbbf24", "#f59e0b", "#d97706", "#b45309", "#fed7aa", "#fdba74", "#fb923c"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function useFetch(fetcher, deps = []) {
@@ -598,14 +598,22 @@ function MonthlyTargetCard() {
 function ConversionFunnelCard() {
   const { data, loading } = useFetch(() => api.getDashboardConversionFunnel());
 
-  const maxCount = Math.max(...(data || []).map((d) => d.count), 1);
-
-  const CustomBarLabel = ({ x, y, width, value, index }) => {
-    const item = data?.[index];
-    if (!item) return null;
+  const CustomBarLabel = ({ x, y, width, value }) => {
+    if (!value) return null;
     return (
-      <text x={x + width + 8} y={y + 9} fontSize={10} fill="#94a3b8" dominantBaseline="middle">
-        {item.fromPrev !== null ? `${item.fromPrev}%` : ""}
+      <text x={x + width / 2} y={y - 4} fontSize={9} fill="#94a3b8" textAnchor="middle">
+        {value.toLocaleString()}
+      </text>
+    );
+  };
+
+  const CustomXTick = ({ x, y, payload }) => {
+    const words = (payload.value || "").split(" ");
+    return (
+      <text x={x} y={y + 10} textAnchor="middle" fontSize={9} fill="#64748b">
+        {words.map((w, i) => (
+          <tspan key={i} x={x} dy={i === 0 ? 0 : 11}>{w}</tspan>
+        ))}
       </text>
     );
   };
@@ -615,8 +623,10 @@ function ConversionFunnelCard() {
       <CardHeader title="Conversion Rate" subtitle="All-time funnel stages" />
 
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((n) => <Skeleton key={n} className="h-7 w-full" />)}
+        <div className="flex items-end gap-2 px-2 pt-4 h-52">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <Skeleton key={n} className="flex-1 rounded-t-lg" style={{ height: `${30 + n * 15}%` }} />
+          ))}
         </div>
       ) : !data?.length ? (
         <EmptyState label="No activity data yet" />
@@ -624,23 +634,23 @@ function ConversionFunnelCard() {
         <div className="h-52">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
-              layout="vertical"
               data={data}
-              margin={{ top: 2, right: 50, left: 0, bottom: 2 }}
-              barSize={14}
+              margin={{ top: 16, right: 8, left: 0, bottom: 28 }}
+              barSize={28}
             >
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis
-                type="number"
-                domain={[0, maxCount]}
-                hide
-              />
-              <YAxis
-                type="category"
                 dataKey="stage"
-                width={90}
-                tick={{ fontSize: 10, fill: "#64748b" }}
+                tick={<CustomXTick />}
                 axisLine={false}
                 tickLine={false}
+                interval={0}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                axisLine={false}
+                tickLine={false}
+                width={32}
               />
               <Tooltip
                 formatter={(v, _name, props) => [
@@ -649,7 +659,7 @@ function ConversionFunnelCard() {
                 ]}
                 contentStyle={{ borderRadius: "12px", border: "1px solid #f1f5f9", fontSize: "11px" }}
               />
-              <Bar dataKey="count" fill={AMBER} radius={[0, 6, 6, 0]}>
+              <Bar dataKey="count" fill={AMBER} radius={[4, 4, 0, 0]}>
                 <LabelList content={<CustomBarLabel />} />
               </Bar>
             </BarChart>
@@ -704,7 +714,7 @@ function TopProductsCard() {
                   {i + 1}
                 </span>
                 {p.images?.[0] ? (
-                  <img src={p.images[0]} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+                  <img src={p.images[0] || "https://placehold.co/400x500?text=No+Image"} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
                 ) : (
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-300">
                     <Package className="h-4 w-4" />
@@ -782,7 +792,7 @@ function LowStockCard() {
                 className="flex cursor-pointer items-center gap-2.5 rounded-xl p-1.5 transition hover:bg-slate-50"
               >
                 {p.images?.[0] ? (
-                  <img src={p.images[0]} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+                  <img src={p.images[0] || "https://placehold.co/400x500?text=No+Image"} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
                 ) : (
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-300">
                     <Package className="h-4 w-4" />
@@ -821,24 +831,27 @@ function LowStockCard() {
 export default function AdminDashboard() {
   return (
     <div className="space-y-5">
-      {/* Row 1: KPI cards + Donut */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-4">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 lg:col-span-3">
-          <WeeklyStatCards />
+      {/* Rows 1+2: KPI cards / Revenue+Target on left, Top Categories spanning both on right */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_280px]">
+        <div className="space-y-5">
+          {/* Row 1: 3 KPI stat cards */}
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <WeeklyStatCards />
+          </div>
+          {/* Row 2: Revenue chart + Monthly Target */}
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_220px]">
+            <RevenueChartCard />
+            <MonthlyTargetCard />
+          </div>
         </div>
+        {/* Top Categories spans both sub-rows */}
         <TopCategoriesCard />
       </div>
 
-      {/* Row 2: Revenue chart + Monthly target */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[3fr_2fr]">
-        <RevenueChartCard />
-        <MonthlyTargetCard />
-      </div>
-
-      {/* Row 3: Conversion + Top Products + Low Stock */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <ConversionFunnelCard />
+      {/* Row 3: Top Products + Conversion Rate (2 col) + Low Stock */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_2fr_1fr]">
         <TopProductsCard />
+        <ConversionFunnelCard />
         <LowStockCard />
       </div>
     </div>

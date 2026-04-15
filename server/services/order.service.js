@@ -418,6 +418,23 @@ const updateOrderStatus = async (orderId, status) => {
     .populate("items.product");
 };
 
+// Demo-only: marks a Stripe order as paid without any Stripe verification.
+// Used on the success return URL so the UI never shows "pending".
+const markOrderPaid = async (userId, orderId) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    throw createHttpError(400, "Invalid order id");
+  }
+  const order = await Order.findOne({ _id: orderId, user: userId });
+  if (!order) throw createHttpError(404, "Order not found");
+  // Idempotent
+  if (order.paymentStatus === "PAID") return order;
+  order.paymentStatus = "PAID";
+  order.status = "PAID";
+  order.paymentVerifiedAt = new Date();
+  await order.save();
+  return order;
+};
+
 module.exports = {
   getOrCreateCart,
   addToCart,
@@ -431,4 +448,5 @@ module.exports = {
   getAllOrders,
   updateOrderStatus,
   clearCart,
+  markOrderPaid,
 };

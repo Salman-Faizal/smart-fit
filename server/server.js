@@ -6,13 +6,32 @@ const { updateTrendingScores } = require("./services/trending.service");
 
 const PORT = process.env.PORT || 3000;
 
-// Connect DB and seed admin settings
+// Connect DB, seed admin settings, and bootstrap trending scores if needed
 connectDB().then(async () => {
   try {
     const { seedAdminSettings } = require("./services/admin.service");
     await seedAdminSettings();
   } catch (err) {
     console.error("[startup] Failed to seed admin settings:", err.message);
+  }
+
+  // Bootstrap trending scores on first run: if every active product still has
+  // trendingScore = 0 the quiz scoring is flat. Run one recalculation so the
+  // first demo has real ranking data without waiting for the 6-hour cron.
+  try {
+    const Product = require("./models/Product");
+    const totalActive = await Product.countDocuments({ status: "active" });
+    if (totalActive > 0) {
+      const withScore = await Product.countDocuments({
+        status: "active",
+        trendingScore: { $gt: 0 },
+      });
+      if (withScore === 0) {
+        updateTrendingScores().catch(() => {});
+      }
+    }
+  } catch {
+    // Non-critical — quiz still works without trending data
   }
 });
 

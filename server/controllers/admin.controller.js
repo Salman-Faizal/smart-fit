@@ -242,9 +242,18 @@ exports.deleteCategory = async (req, res) => {
 
 exports.getProducts = async (req, res) => {
   try {
-    const { page, limit, search, category, stockStatus, priceMin, priceMax, sortBy, sortDir } = req.query;
-    const result = await adminService.getAdminProducts({ page, limit: Math.min(Number(limit) || 20, 100), search, category, stockStatus, priceMin, priceMax, sortBy, sortDir });
+    const { page, limit, search, category, stockStatus, status, priceMin, priceMax, sortBy, sortDir } = req.query;
+    const result = await adminService.getAdminProducts({ page, limit: Math.min(Number(limit) || 20, 100), search, category, stockStatus, status, priceMin, priceMax, sortBy, sortDir });
     return res.status(200).json(result);
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+exports.updateProductStatus = async (req, res) => {
+  try {
+    const product = await adminService.updateProductStatus(req.params.id, req.body.status);
+    return res.status(200).json({ message: "Product status updated", product });
   } catch (error) {
     return handleError(res, error);
   }

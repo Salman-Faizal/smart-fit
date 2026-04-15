@@ -10,6 +10,7 @@ router.delete("/orders/cart/:itemId", protect, orderController.removeCartItem);
 router.post("/orders/checkout", protect, orderController.checkoutOrder);
 router.get("/orders/my", protect, orderController.getOrdersByUser);
 router.get("/orders/:orderId", protect, orderController.getOrderById);
+router.patch("/orders/:orderId/mark-paid", protect, orderController.markOrderPaid);
 
 router.get(
   "/admin/orders",

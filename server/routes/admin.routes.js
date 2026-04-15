@@ -53,6 +53,7 @@ router.delete("/admin/categories/:id", ...admin, adminController.deleteCategory)
 // Products (admin paginated)
 router.get("/admin/products", ...admin, adminController.getProducts);
 router.post("/admin/products/bulk", ...admin, adminController.bulkCreateProducts);
+router.patch("/admin/products/:id/status", ...admin, adminController.updateProductStatus);
 router.delete("/admin/products/:id", ...admin, adminController.softDeleteProduct);
 
 // Reports

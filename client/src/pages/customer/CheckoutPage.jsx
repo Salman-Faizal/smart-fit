@@ -163,9 +163,10 @@ function UpsellCard({ product, onAdd, adding, added }) {
     <article className="flex w-40 flex-shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md sm:w-44">
       <Link to={`/products/${product._id}`} className="block flex-shrink-0">
         <img
-          src={assetUrl(product.images?.[0]) || "https://placehold.co/176x128?text=+"}
+          src={assetUrl(product.images?.[0]) || "https://placehold.co/400x500?text=No+Image"}
           alt={product.name}
           className="h-32 w-full object-cover sm:h-36"
+          onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
         />
       </Link>
       <div className="flex flex-1 flex-col gap-2 p-3">
@@ -665,27 +666,16 @@ export default function CheckoutPage() {
             orderId,
           });
         } else if (paymentState === "success") {
-          const { order } = await api.getOrderById(orderId);
-
-          if (order.paymentStatus === "PAID" || order.status === "PAID") {
-            setCheckoutResult({
-              type: "success",
-              title: "Payment Successful!",
-              description: "Your order has been confirmed. We&apos;ll start preparing it right away.",
-              orderId,
-              order,
-            });
-            trackOrderPurchases(order.items);
-            await loadData();
-          } else {
-            setCheckoutResult({
-              type: "pending",
-              title: "Verifying payment…",
-              description: "Your payment is being verified. This usually takes just a moment. Check your orders for updates.",
-              orderId,
-              order,
-            });
-          }
+          const { order } = await api.markOrderPaid(orderId);
+          setCheckoutResult({
+            type: "success",
+            title: "Payment Successful!",
+            description: "Your order has been confirmed. We&apos;ll start preparing it right away.",
+            orderId,
+            order,
+          });
+          trackOrderPurchases(order.items);
+          await loadData();
         } else if (paymentState === "failed") {
           await api.cancelStripeOrder(orderId);
           setCheckoutResult({
@@ -988,7 +978,7 @@ export default function CheckoutPage() {
             <ul className="space-y-3">
               {cart.items.map((item) => {
                 const productName = item.product?.name || "Product";
-                const imgUrl = assetUrl(item.product?.images?.[0]) || "https://placehold.co/80x80?text=+";
+                const imgUrl = assetUrl(item.product?.images?.[0]) || "https://placehold.co/400x500?text=No+Image";
                 const unitPrice = Number(item.price || 0);
                 const lineTotal = unitPrice * Number(item.quantity || 0);
 
@@ -999,7 +989,7 @@ export default function CheckoutPage() {
                   >
                     <div className="flex items-center gap-4">
                       <Link to={`/products/${item.product?._id}`} className="flex-shrink-0 overflow-hidden rounded-xl">
-                        <img src={imgUrl} alt={productName} className="h-20 w-20 object-cover" />
+                        <img src={imgUrl} alt={productName} className="h-20 w-20 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
                       </Link>
                       <div>
                         <p className="font-semibold leading-tight text-slate-800">{productName}</p>

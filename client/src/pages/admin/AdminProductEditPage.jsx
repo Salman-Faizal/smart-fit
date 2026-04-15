@@ -12,6 +12,11 @@ export default function AdminProductEditPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    api.getAdminCategories().then((data) => setCategories(data.categories || [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -68,6 +73,7 @@ export default function AdminProductEditPage() {
         onSubmit={handleSubmit}
         loading={submitting}
         existingImages={product.images || []}
+        categories={categories}
         defaultValues={{
           name: product.name,
           category: product.category,

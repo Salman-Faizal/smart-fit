@@ -60,10 +60,14 @@ const QUICK_LINKS = [
   { label: "Update Profile", to: "/admin/profile", icon: UserCircle, color: "bg-slate-50 text-slate-700 border-slate-200" },
 ];
 
+const FAQ_VISIBLE_DEFAULT = 5;
+
 export default function AdminHelpPage() {
   const [openIndex, setOpenIndex] = useState(null);
+  const [showAll, setShowAll] = useState(false);
 
   const toggle = (i) => setOpenIndex(openIndex === i ? null : i);
+  const visibleFaqs = showAll ? FAQS : FAQS.slice(0, FAQ_VISIBLE_DEFAULT);
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -90,26 +94,40 @@ export default function AdminHelpPage() {
       {/* FAQ Accordion */}
       <div>
         <h2 className="mb-4 text-base font-semibold text-slate-900">Frequently Asked Questions</h2>
-        <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-sm">
-          {FAQS.map((faq, i) => (
-            <div key={i}>
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+          <div className="divide-y divide-slate-100">
+            {visibleFaqs.map((faq, i) => (
+              <div key={i}>
+                <button
+                  type="button"
+                  onClick={() => toggle(i)}
+                  className="flex w-full items-center justify-between px-5 py-4 text-left transition hover:bg-slate-50"
+                >
+                  <span className="text-sm font-medium text-slate-900 pr-4">{faq.q}</span>
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 ${openIndex === i ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {openIndex === i && (
+                  <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-4">
+                    <p className="text-sm leading-relaxed text-slate-600">{faq.a}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {FAQS.length > FAQ_VISIBLE_DEFAULT && (
+            <div className="border-t border-slate-100">
               <button
                 type="button"
-                onClick={() => toggle(i)}
-                className="flex w-full items-center justify-between px-5 py-4 text-left transition hover:bg-slate-50"
+                onClick={() => setShowAll((s) => !s)}
+                className="flex w-full items-center justify-center gap-1.5 px-5 py-3 text-sm font-medium text-amber-600 transition hover:bg-amber-50"
               >
-                <span className="text-sm font-medium text-slate-900 pr-4">{faq.q}</span>
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 ${openIndex === i ? "rotate-180" : ""}`}
-                />
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showAll ? "rotate-180" : ""}`} />
+                {showAll ? "Show less" : `Show ${FAQS.length - FAQ_VISIBLE_DEFAULT} more`}
               </button>
-              {openIndex === i && (
-                <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-4">
-                  <p className="text-sm leading-relaxed text-slate-600">{faq.a}</p>
-                </div>
-              )}
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>

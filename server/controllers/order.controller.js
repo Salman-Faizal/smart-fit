@@ -125,3 +125,13 @@ exports.updateOrderStatus = async (req, res) => {
     return handleError(res, error);
   }
 };
+
+
+exports.markOrderPaid = async (req, res) => {
+  try {
+    const order = await orderService.markOrderPaid(req.user.id, req.params.orderId);
+    return res.status(200).json({ message: "Order marked as paid", order });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};

@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import CustomerHeader from "../../components/layout/CustomerHeader";
 import Footer from "../../components/layout/Footer";
+import QuizFloatingCTA from "../recs/QuizFloatingCTA";
 import { api } from "../../lib/api";
 
 export default function CustomerLayout() {
@@ -41,6 +42,7 @@ export default function CustomerLayout() {
         <Outlet />
       </main>
       <Footer />
+      <QuizFloatingCTA />
     </div>
   );
 }

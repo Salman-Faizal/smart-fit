@@ -3,6 +3,7 @@ const forYouService = require("../services/forYou.service");
 const discoverService = require("../services/discover.service");
 const alsoViewedService = require("../services/alsoViewed.service");
 const checkoutUpsellService = require("../services/checkoutUpsell.service");
+const quizRecommendationService = require("../services/quizRecommendation.service");
 
 const resolveLimit = (limit, fallback) =>
   recommendationService.normalizeLimit(limit, fallback);
@@ -168,6 +169,26 @@ exports.getAlsoViewed = async (req, res) => {
     return res
       .status(statusCode)
       .json({ message: error.message || "Failed to load also-viewed products" });
+  }
+};
+
+exports.getQuizRecommendations = async (req, res) => {
+  try {
+    const { occasion, fit, colorMood, budget, style, categories } = req.body;
+    const result = await quizRecommendationService.getQuizRecommendations({
+      userId: req.user.id,
+      occasion,
+      fit,
+      colorMood,
+      budget,
+      style,
+      categories: Array.isArray(categories) ? categories : [],
+    });
+    return res.status(200).json(result);
+  } catch (_error) {
+    return res
+      .status(500)
+      .json({ message: "Failed to get quiz recommendations" });
   }
 };
 

@@ -7,6 +7,7 @@ const {
   getDiscoverFeed,
   getAlsoViewed,
   getCheckoutUpsell,
+  getQuizRecommendations,
 } = require("../controllers/recommendation.controller");
 
 // GET /api/recommendations/trending
@@ -35,5 +36,10 @@ router.get("/also-viewed/:productId", optionalProtect, getAlsoViewed);
 // Smart pre-checkout upsell (P1 wishlist / P2 repeat views / P3 complements / P4 trending).
 // Requires auth — userId comes from JWT, not the URL.
 router.get("/checkout-upsell", protect, getCheckoutUpsell);
+
+// POST /api/recommendations/quiz
+// Style Quiz — filters + scores products against user preferences, returns top 12.
+// Requires auth — userId used to exclude already-purchased products.
+router.post("/quiz", protect, getQuizRecommendations);
 
 module.exports = router;

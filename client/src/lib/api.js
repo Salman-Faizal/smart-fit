@@ -116,12 +116,18 @@ export const api = {
   },
   getMyOrders: () => request("/orders/my"),
   getOrderById: (orderId) => request(`/orders/${orderId}`),
+  markOrderPaid: (orderId) =>
+    request(`/orders/${orderId}/mark-paid`, { method: "PATCH" }),
   createStripeCheckoutSession: (orderId) =>
     request(`/payments/orders/${orderId}/stripe-checkout-session`, {
       method: "POST",
     }),
   cancelStripeOrder: (orderId) =>
     request(`/payments/orders/${orderId}/cancel`, {
+      method: "POST",
+    }),
+  confirmStripeOrderPaid: (orderId) =>
+    request(`/payments/orders/${orderId}/confirm-paid`, {
       method: "POST",
     }),
   getProducts: (params = {}) => {
@@ -293,6 +299,11 @@ export const api = {
   },
   adminSoftDeleteProduct: (id) =>
     request(`/admin/products/${id}`, { method: "DELETE" }),
+  updateProductStatus: (id, status) =>
+    request(`/admin/products/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
   bulkCreateProducts: (products) =>
     request("/admin/products/bulk", {
       method: "POST",
@@ -342,6 +353,12 @@ export const api = {
     return request(`/admin/reports/customer-insights?${query.toString()}`);
   },
   getReportLowStockSnapshot: () => request("/admin/reports/low-stock-snapshot"),
+  // Style Quiz
+  submitStyleQuiz: (payload) =>
+    request("/recommendations/quiz", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   // Wishlist
   getWishlist: () => request("/users/me/wishlist"),
   // Profile update

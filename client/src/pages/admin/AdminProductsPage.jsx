@@ -81,6 +81,7 @@ export default function AdminProductsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [category, setCategory] = useState("");
   const [stockStatus, setStockStatus] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [sortKey, setSortKey] = useState("createdAt_desc");
   const [selected, setSelected] = useState(new Set());
   const [bulkAction, setBulkAction] = useState("");
@@ -111,7 +112,7 @@ export default function AdminProductsPage() {
     try {
       setLoading(true);
       setError("");
-      const data = await api.getAdminProducts({ page, limit: 20, search, category, stockStatus, sortBy, sortDir });
+      const data = await api.getAdminProducts({ page, limit: 20, search, category, stockStatus, status: statusFilter, sortBy, sortDir });
       setProducts(data.products || []);
       setTotalPages(data.pages || 1);
       setTotal(data.total || 0);
@@ -121,7 +122,7 @@ export default function AdminProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, category, stockStatus, sortBy, sortDir]);
+  }, [page, search, category, stockStatus, statusFilter, sortBy, sortDir]);
 
   useEffect(() => { loadProducts(); }, [loadProducts]);
 
@@ -187,7 +188,7 @@ export default function AdminProductsPage() {
         showToast(`${selected.size} product(s) deleted`);
       } else if (bulkAction === "setActive" || bulkAction === "setInactive") {
         const status = bulkAction === "setActive" ? "active" : "inactive";
-        await Promise.all([...selected].map((id) => api.updateProduct(id, JSON.stringify({ status }))));
+        await Promise.all([...selected].map((id) => api.updateProductStatus(id, status)));
         showToast(`${selected.size} product(s) updated`);
       }
       loadProducts();
@@ -338,6 +339,13 @@ export default function AdminProductsPage() {
           <option value="outOfStock">Out of Stock</option>
         </select>
 
+        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+
         <select value={sortKey} onChange={(e) => { setSortKey(e.target.value); setPage(1); }}
           className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none">
           {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -408,7 +416,12 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="px-4 py-3">
                       {p.images?.[0] ? (
-                        <img src={p.images[0]} alt={p.name} className="h-10 w-10 rounded-lg object-cover" />
+                        <img
+                          src={p.images[0]}
+                          alt={p.name}
+                          className="h-10 w-10 rounded-lg object-cover bg-slate-100"
+                          onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
+                        />
                       ) : (
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-300">
                           <Package className="h-5 w-5" />

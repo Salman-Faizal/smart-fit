@@ -528,6 +528,71 @@ const verifyStripeWebhookEvent = (signature, rawBodyBuffer) => {
   }
 };
 
+const confirmStripeOrderPaid = async (userId, orderId) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    throw createHttpError(400, "Invalid order id");
+  }
+
+  const order = await Order.findOne({ _id: orderId, user: userId }).populate("items.product");
+
+  if (!order) {
+    throw createHttpError(404, "Order not found");
+  }
+
+  if (order.paymentMethod !== "STRIPE") {
+    throw createHttpError(400, "Order is not a Stripe order");
+  }
+
+  // Idempotent — already paid (e.g. webhook already fired)
+  if (order.paymentStatus === "PAID") {
+    return Order.findById(order._id).populate("items.product");
+  }
+
+  // Cannot revive a cancelled or failed order
+  if (order.status === "CANCELLED" || order.paymentStatus === "FAILED") {
+    throw createHttpError(400, "Order has already been cancelled or failed");
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    await session.startTransaction();
+
+    for (const item of order.items) {
+      const productId = item.product?._id || item.product;
+      const updatedProduct = await Product.findOneAndUpdate(
+        { _id: productId, stock: { $gte: item.quantity } },
+        { $inc: { stock: -item.quantity } },
+        { new: true, session },
+      );
+
+      if (!updatedProduct) {
+        throw createHttpError(400, "Insufficient stock for one or more items");
+      }
+    }
+
+    await updatePurchaseCounts(order.items, 1, session);
+    await trackPurchasedProducts(String(order.user), order.items, session);
+
+    order.paymentStatus = "PAID";
+    order.status = "PAID";
+    order.paymentVerifiedAt = new Date();
+    order.paymentGateway = "STRIPE";
+
+    await order.save({ session });
+    await clearCart(order.user, session);
+
+    await session.commitTransaction();
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+
+  return Order.findById(order._id).populate("items.product");
+};
+
 module.exports = {
   uploadPaymentSlip,
   getPaymentSlip,
@@ -535,4 +600,5 @@ module.exports = {
   verifyStripeWebhookEvent,
   handleStripeWebhookEvent,
   cancelStripeCheckoutOrder,
+  confirmStripeOrderPaid,
 };

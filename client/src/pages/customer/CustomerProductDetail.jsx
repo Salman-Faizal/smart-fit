@@ -342,10 +342,11 @@ export default function CustomerProductDetail() {
           {/* Main image */}
           <div className="overflow-hidden rounded-2xl bg-slate-100">
             <img
-              src={images[activeImage]}
+              src={images[activeImage] || "https://placehold.co/400x500?text=No+Image"}
               alt={product.name}
-              className="w-full object-cover transition-all duration-500"
+              className="w-full object-cover"
               style={{ aspectRatio: "4/5" }}
+              onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
             />
           </div>
 
@@ -363,7 +364,12 @@ export default function CustomerProductDetail() {
                       : "border-transparent opacity-60 hover:opacity-100"
                   }`}
                 >
-                  <img src={src} alt="" className="h-full w-full object-cover" />
+                  <img
+                    src={src || "https://placehold.co/400x500?text=No+Image"}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
+                  />
                 </button>
               ))}
             </div>

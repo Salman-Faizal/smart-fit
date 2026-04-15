@@ -3,7 +3,9 @@
     "allow": [
       "Bash(node -e \"require\\('./services/admin.service'\\); require\\('./controllers/admin.controller'\\); require\\('./routes/admin.routes'\\); console.log\\('All server files load OK'\\);\")",
       "Bash(node -e \"import\\('jspdf'\\).then\\(m => console.log\\('jspdf OK:', typeof m.jsPDF\\)\\)\")",
-      "Bash(node -e \"const app = require\\('./app'\\); console.log\\('app.js OK — routes mounted'\\); process.exit\\(0\\);\")"
+      "Bash(node -e \"const app = require\\('./app'\\); console.log\\('app.js OK — routes mounted'\\); process.exit\\(0\\);\")",
+      "Bash(npm run *)",
+      "Bash(node -e ' *)"
     ]
   }
 }

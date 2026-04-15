@@ -32,4 +32,10 @@ router.post(
   paymentController.cancelStripeCheckoutOrder,
 );
 
+router.post(
+  "/payments/orders/:orderId/confirm-paid",
+  protect,
+  paymentController.confirmStripeOrderPaid,
+);
+
 module.exports = router;

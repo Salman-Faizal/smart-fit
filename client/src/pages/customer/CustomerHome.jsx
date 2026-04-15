@@ -14,7 +14,7 @@
  *  - Nav highlights current section
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import RecommendationSection from "../../components/products/RecommendationSection";
 import InfiniteScrollFeed from "../../components/products/InfiniteScrollFeed";
@@ -112,8 +112,8 @@ function FadeSection({ children, className = "", id }) {
     <div
       id={id}
       ref={ref}
-      className={`transition-all duration-500 ${
-        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+      className={`transition-opacity duration-200 ${
+        visible ? "opacity-100" : "opacity-0"
       } ${className}`}
     >
       {children}
@@ -290,6 +290,38 @@ function PromoBanner() {
   );
 }
 
+// ─── Memoized recommendation sub-components ──────────────────────────────────
+
+const MemoTopPicks = memo(function TopPicksSection({ label, isColdStart, products, getProductCaption }) {
+  return (
+    <RecommendationSection
+      title={label}
+      subtitle={
+        isColdStart
+          ? "Based on what's popular right now — browse more to personalise this."
+          : "Scored from your browsing, wishlist, and purchase history."
+      }
+      tone="personal"
+      products={products}
+      sectionId="top-picks"
+      viewAllTo="/search"
+      getProductCaption={getProductCaption}
+    />
+  );
+});
+
+const MemoTrending = memo(function TrendingSection({ products }) {
+  return (
+    <RecommendationSection
+      title="Trending Now"
+      subtitle="Global best-performers driven by store-wide views and purchases."
+      products={products}
+      sectionId="trending"
+      viewAllTo="/search?sort=popularity"
+    />
+  );
+});
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function CustomerHome() {
@@ -324,6 +356,8 @@ export default function CustomerHome() {
     () => [...trendingRaw, ...topPicks].map((p) => p._id).join(","),
     [trendingRaw, topPicks],
   );
+
+  const getTopPickCaption = useCallback((product) => product.reason ?? null, []);
 
   const heroUsers = formatCompactCount(registeredUsers);
   const heroProducts = formatCompactCount(totalProducts || products.length);
@@ -470,31 +504,18 @@ export default function CustomerHome() {
       {/* ── 3. Top Picks For You (authenticated only) ────────────────────── */}
       {isAuthenticated && topPicks.length > 0 ? (
         <FadeSection id="for-you">
-          <RecommendationSection
-            title={topPicksLabel}
-            subtitle={
-              topPicksIsColdStart
-                ? "Based on what's popular right now — browse more to personalise this."
-                : "Scored from your browsing, wishlist, and purchase history."
-            }
-            tone="personal"
+          <MemoTopPicks
+            label={topPicksLabel}
+            isColdStart={topPicksIsColdStart}
             products={topPicks}
-            sectionId="top-picks"
-            viewAllTo="/search"
-            getProductCaption={(product) => product.reason ?? null}
+            getProductCaption={getTopPickCaption}
           />
         </FadeSection>
       ) : null}
 
       {/* ── 4. Trending Now ─────────────────────────────────────────────── */}
       <FadeSection id="trending">
-        <RecommendationSection
-          title="Trending Now"
-          subtitle="Global best-performers driven by store-wide views and purchases."
-          products={trending}
-          sectionId="trending"
-          viewAllTo="/search?sort=popularity"
-        />
+        <MemoTrending products={trending} />
       </FadeSection>
 
       {/* ── 5. Promo Banner ─────────────────────────────────────────────── */}
