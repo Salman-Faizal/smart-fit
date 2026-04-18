@@ -17,11 +17,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ShoppingBag, Heart, Award } from "lucide-react";
 import { api, assetUrl } from "../../lib/api";
 import { formatLKR } from "../../lib/formatLKR";
 import { useAuth } from "../../hooks/useAuth";
 import { useWishlist } from "../../context/WishlistContext";
 import ProductCard from "../../components/products/ProductCard";
+
+function formatStatNumber(n) {
+  const v = Number(n || 0);
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+  return v.toLocaleString();
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -103,13 +111,16 @@ function Overview({ user, orders, wishlistIds, onTabChange }) {
       {/* Quick stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Total Orders", value: orders.filter((o) => o.status !== "CART").length },
-          { label: "Wishlist Items", value: wishlistIds.size },
-          { label: "Loyalty Points", value: loyaltyPoints },
-        ].map((stat) => (
-          <div key={stat.label} className="rounded-2xl bg-white p-4 text-center shadow-sm border border-slate-100">
-            <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-            <p className="mt-1 text-xs text-slate-500">{stat.label}</p>
+          { label: "Total Orders", value: orders.filter((o) => o.status !== "CART").length, Icon: ShoppingBag, color: "text-amber-600 bg-amber-50" },
+          { label: "Wishlist Items", value: wishlistIds.size, Icon: Heart, color: "text-rose-500 bg-rose-50" },
+          { label: "Loyalty Points", value: loyaltyPoints, Icon: Award, color: "text-sky-600 bg-sky-50" },
+        ].map(({ label, value, Icon, color }) => (
+          <div key={label} className="rounded-2xl bg-white p-4 text-center shadow-sm border border-slate-100 space-y-2">
+            <div className={`mx-auto flex h-9 w-9 items-center justify-center rounded-full ${color}`}>
+              <Icon size={16} />
+            </div>
+            <p className="text-2xl font-bold text-slate-900">{formatStatNumber(value)}</p>
+            <p className="text-xs text-slate-500">{label}</p>
           </div>
         ))}
       </div>
@@ -125,16 +136,16 @@ function Overview({ user, orders, wishlistIds, onTabChange }) {
         {!recentOrders.length ? (
           <p className="text-sm text-slate-400">No orders yet. Start shopping!</p>
         ) : (
-          <div className="space-y-3">
+          <div className="divide-y divide-slate-100">
             {recentOrders.map((order) => (
-              <div key={order._id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5 text-sm">
+              <div key={order._id} className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 py-2.5 px-1">
                 <div>
-                  <p className="font-mono text-xs text-slate-500">#{order._id.slice(-8)}</p>
-                  <p className="text-xs text-slate-400">{formatDate(order.createdAt)}</p>
+                  <p className="font-mono text-xs font-semibold text-slate-700">#{order._id.slice(-8)}</p>
+                  <p className="text-[11px] text-slate-400">{formatDate(order.createdAt)}</p>
                 </div>
                 <StatusBadge status={order.status} />
-                <p className="font-semibold text-slate-800">{formatLKR(order.totalPrice)}</p>
-                <button type="button" onClick={() => onTabChange("orders")} className="text-xs text-amber-600 hover:underline">
+                <p className="text-right text-sm font-semibold text-slate-800">{formatLKR(order.totalPrice)}</p>
+                <button type="button" onClick={() => onTabChange("orders")} className="text-right text-xs font-medium text-amber-600 hover:underline">
                   View
                 </button>
               </div>
@@ -148,9 +159,56 @@ function Overview({ user, orders, wishlistIds, onTabChange }) {
 
 // ─── My Orders section ────────────────────────────────────────────────────────
 
+const ORDERS_PAGE_SIZE = 5;
+const ITEMS_PREVIEW = 2;
+
+function OrderItemsList({ items }) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? items : items.slice(0, ITEMS_PREVIEW);
+  const hidden = items.length - ITEMS_PREVIEW;
+
+  return (
+    <div className="border-t border-slate-100 px-4 pb-4 pt-3 space-y-2.5">
+      {visible.map((item, idx) => (
+        <div key={idx} className="flex items-center gap-3 text-sm">
+          {item.product?.images?.[0] ? (
+            <img
+              src={assetUrl(item.product.images[0])}
+              alt={item.product?.name}
+              className="h-12 w-12 flex-shrink-0 rounded-lg object-cover"
+            />
+          ) : (
+            <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-slate-100" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-slate-800 line-clamp-1">{item.product?.name || "Product"}</p>
+            <p className="text-xs text-slate-500">Qty: {item.quantity}</p>
+          </div>
+          <p className="font-semibold text-slate-700 shrink-0">{formatLKR(item.price * item.quantity)}</p>
+        </div>
+      ))}
+      {!showAll && hidden > 0 && (
+        <button type="button" onClick={() => setShowAll(true)}
+          className="text-xs text-amber-600 hover:underline">
+          Show {hidden} more item{hidden !== 1 ? "s" : ""} →
+        </button>
+      )}
+      {showAll && items.length > ITEMS_PREVIEW && (
+        <button type="button" onClick={() => setShowAll(false)}
+          className="text-xs text-slate-400 hover:underline">
+          Show less
+        </button>
+      )}
+    </div>
+  );
+}
+
 function MyOrders({ orders }) {
   const [expanded, setExpanded] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(ORDERS_PAGE_SIZE);
   const realOrders = orders.filter((o) => o.status !== "CART");
+  const visibleOrders = realOrders.slice(0, visibleCount);
+  const hasMore = visibleCount < realOrders.length;
 
   if (!realOrders.length) {
     return (
@@ -168,8 +226,8 @@ function MyOrders({ orders }) {
   return (
     <div className="space-y-3">
       <h2 className="text-xl font-bold text-slate-900">My Orders</h2>
-      {realOrders.map((order) => (
-        <div key={order._id} className="overflow-hidden rounded-2xl bg-white shadow-sm border border-slate-100">
+      {visibleOrders.map((order) => (
+        <div key={order._id} className="overflow-hidden rounded-2xl bg-white shadow-sm border border-slate-100 transition-all duration-200">
           <button
             type="button"
             onClick={() => setExpanded(expanded === order._id ? null : order._id)}
@@ -186,31 +244,29 @@ function MyOrders({ orders }) {
           </button>
 
           {expanded === order._id && order.items?.length > 0 && (
-            <div className="border-t border-slate-100 px-4 pb-4 pt-3 space-y-2.5">
-              {order.items.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-3 text-sm">
-                  {item.product?.images?.[0] ? (
-                    <img
-                      src={assetUrl(item.product.images[0])}
-                      alt={item.product?.name}
-                      className="h-12 w-12 flex-shrink-0 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-slate-100" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-800 line-clamp-1">
-                      {item.product?.name || "Product"}
-                    </p>
-                    <p className="text-xs text-slate-500">Qty: {item.quantity}</p>
-                  </div>
-                  <p className="font-semibold text-slate-700 shrink-0">{formatLKR(item.price * item.quantity)}</p>
-                </div>
-              ))}
-            </div>
+            <OrderItemsList items={order.items} />
           )}
         </div>
       ))}
+
+      {hasMore && (
+        <button
+          type="button"
+          onClick={() => setVisibleCount((c) => c + ORDERS_PAGE_SIZE)}
+          className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+        >
+          Show more orders ({realOrders.length - visibleCount} remaining)
+        </button>
+      )}
+      {!hasMore && realOrders.length > ORDERS_PAGE_SIZE && (
+        <button
+          type="button"
+          onClick={() => setVisibleCount(ORDERS_PAGE_SIZE)}
+          className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-50 transition"
+        >
+          Show less
+        </button>
+      )}
     </div>
   );
 }

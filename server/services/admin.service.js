@@ -251,13 +251,32 @@ const getAdminOrders = async ({ page = 1, limit = 20, status, paymentStatus, pay
     }
   }
 
-  let userIds = null;
   if (search) {
-    const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const trimmed = search.trim();
+    const searchRegex = new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
     const matchedUsers = await User.find({ name: searchRegex }).select("_id").lean();
-    userIds = matchedUsers.map((u) => u._id);
-    query.$or = [{ _id: mongoose.Types.ObjectId.isValid(search) ? new mongoose.Types.ObjectId(search) : null }, { user: { $in: userIds } }];
-    if (!query.$or[0]._id) query.$or.shift();
+    const userIds = matchedUsers.map((u) => u._id);
+
+    const orClauses = [{ user: { $in: userIds } }];
+
+    if (mongoose.Types.ObjectId.isValid(trimmed)) {
+      orClauses.push({ _id: new mongoose.Types.ObjectId(trimmed) });
+    }
+
+    // Allow partial match on last N chars of the order ID (as shown in the UI)
+    if (/^[0-9a-f]+$/i.test(trimmed) && trimmed.length <= 24) {
+      orClauses.push({
+        $expr: {
+          $regexMatch: {
+            input: { $toString: "$_id" },
+            regex: trimmed,
+            options: "i",
+          },
+        },
+      });
+    }
+
+    query.$or = orClauses;
   }
 
   const skip = (Math.max(page, 1) - 1) * limit;
@@ -796,15 +815,19 @@ const getConversionFunnelData = async () => {
     Order.countDocuments(paidMatch),
   ]);
 
-  const abandoned = Math.max(0, cartAdds - paid);
+  // Cap each stage at the previous to guarantee a monotonically decreasing funnel
+  const cappedCartAdds = Math.min(cartAdds, views);
+  const cappedCheckouts = Math.min(checkouts, cappedCartAdds);
+  const cappedPaid = Math.min(paid, cappedCheckouts);
+  const cappedAbandoned = Math.max(0, cappedCartAdds - cappedPaid);
   const toRate = (n, d) => (d > 0 ? Number(((n / d) * 100).toFixed(1)) : 0);
 
   return [
     { stage: "Product Views", count: views, rate: 100, fromPrev: null },
-    { stage: "Add to Cart", count: cartAdds, rate: toRate(cartAdds, views), fromPrev: toRate(cartAdds, views) },
-    { stage: "Checkout", count: checkouts, rate: toRate(checkouts, views), fromPrev: toRate(checkouts, cartAdds) },
-    { stage: "Purchases", count: paid, rate: toRate(paid, views), fromPrev: toRate(paid, checkouts) },
-    { stage: "Abandoned", count: abandoned, rate: toRate(abandoned, views), fromPrev: toRate(abandoned, cartAdds) },
+    { stage: "Add to Cart", count: cappedCartAdds, rate: toRate(cappedCartAdds, views), fromPrev: toRate(cappedCartAdds, views) },
+    { stage: "Checkout", count: cappedCheckouts, rate: toRate(cappedCheckouts, views), fromPrev: toRate(cappedCheckouts, cappedCartAdds) },
+    { stage: "Purchases", count: cappedPaid, rate: toRate(cappedPaid, views), fromPrev: toRate(cappedPaid, cappedCheckouts) },
+    { stage: "Abandoned", count: cappedAbandoned, rate: toRate(cappedAbandoned, views), fromPrev: toRate(cappedAbandoned, cappedCartAdds) },
   ];
 };
 

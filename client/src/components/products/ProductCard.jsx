@@ -102,8 +102,9 @@ export default function ProductCard({
   product,
   to,
   onImageClick,
-  // optional: pass true if parent knows this is a top-seller (e.g. from rank data)
   isTopSelling: isTopSellingProp,
+  // optional boolean override: if provided, replaces the internal 7-day calculation
+  isNewArrival: isNewArrivalProp,
 }) {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -130,11 +131,13 @@ export default function ProductCard({
     badgeStr.includes("trending") ||
     badgeStr.includes("selling");
 
-  // New Arrival: added within last 14 days
+  // New Arrival: parent can override; fallback is 7-day threshold
   const isNewArrival =
-    !isTopSelling &&
-    product.createdAt &&
-    Date.now() - new Date(product.createdAt).getTime() < 14 * 24 * 60 * 60 * 1000;
+    isNewArrivalProp !== undefined
+      ? isNewArrivalProp && !isTopSelling
+      : !isTopSelling &&
+        product.createdAt &&
+        Date.now() - new Date(product.createdAt).getTime() < 7 * 24 * 60 * 60 * 1000;
 
   const { rating, reviews } = seededRating(productId);
 

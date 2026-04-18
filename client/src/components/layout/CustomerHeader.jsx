@@ -6,8 +6,8 @@ import { assetUrl } from "../../lib/api";
 
 const NAV_ITEMS = [
   { label: "Home", id: "home" },
-  { label: "Trending", id: "trending" },
   { label: "For You", id: "for-you" },
+  { label: "Trending", id: "trending" },
   { label: "Discover", id: "discover" },
 ];
 
@@ -155,10 +155,17 @@ export default function CustomerHeader({ cartCount = 0 }) {
             <NavLink
               to="/search"
               className={({ isActive }) =>
-                `text-sm font-medium transition ${isActive ? "text-amber-600" : "text-slate-500 hover:text-amber-600"}`
+                `relative text-sm font-medium transition ${isActive ? "text-amber-600" : "text-slate-500 hover:text-amber-600"}`
               }
             >
-              All Products
+              {({ isActive }) => (
+                <>
+                  All Products
+                  {isActive && (
+                    <span className="absolute -bottom-1.5 left-0 right-0 h-0.5 rounded-full bg-amber-600" />
+                  )}
+                </>
+              )}
             </NavLink>
           </nav>
 

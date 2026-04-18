@@ -14,7 +14,7 @@
  */
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, assetUrl } from "../../lib/api";
 import { formatLKR } from "../../lib/formatLKR";
 import { trackActivity } from "../../lib/trackActivity";
@@ -114,7 +114,7 @@ const STEPS = [
 
 function StepIndicator({ currentStep }) {
   return (
-    <div className="mb-8 flex items-start">
+    <div className="mb-5 flex items-start">
       {STEPS.map((step, index) => {
         const stepNumber = index + 1;
         const isDone = stepNumber < currentStep;
@@ -255,7 +255,11 @@ function StripeRedirectingScreen() {
 
 // ─── Checkout Result (Stripe success / failure) ───────────────────────────────
 
-function CheckoutResult({ result, onRetryStripe }) {
+function CheckoutResult({ result, onRetryStripe, onBackToCart }) {
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
+
   const isSuccess = result.type === "success";
   const isPending = result.type === "pending";
   const isError = result.type === "failed" || result.type === "cancelled";
@@ -269,56 +273,52 @@ function CheckoutResult({ result, onRetryStripe }) {
   const estimatedDelivery = isSuccess ? getEstimatedDelivery() : null;
 
   return (
-    <section className="mx-auto max-w-2xl px-4 py-12">
+    <section className="mx-auto max-w-xl px-4 py-8">
       <StepIndicator currentStep={3} />
-      <div className="w-full rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-        <div className={`mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full ${iconBg} ${iconText}`}>
-          <Icon className="h-10 w-10" />
+      <div className="w-full rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+        <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${iconBg} ${iconText}`}>
+          <Icon className="h-7 w-7" />
         </div>
 
-        <h2 className="text-2xl font-bold text-slate-900">{result.title}</h2>
-        <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-500">
+        <h2 className="text-xl font-bold text-slate-900">{result.title}</h2>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
           {result.description}
         </p>
 
         {result.orderId && (
-          <div className="mx-auto mt-6 max-w-sm rounded-2xl bg-slate-50 p-4 text-left">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-              Order Reference
-            </p>
-            <p className="mt-1.5 break-all font-mono text-sm font-semibold text-slate-800">
-              {result.orderId}
-            </p>
+          <div className="mx-auto mt-4 max-w-sm rounded-2xl bg-slate-50 p-3 text-left">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Order Ref</p>
+            <p className="mt-1 break-all font-mono text-xs font-semibold text-slate-800">{result.orderId}</p>
 
             {result.order?.items?.length > 0 && (
-              <div className="mt-3 space-y-1.5 border-t border-slate-200 pt-3 text-xs text-slate-600">
+              <div className="mt-2 space-y-1 border-t border-slate-200 pt-2 text-xs text-slate-600">
                 <div className="flex justify-between">
-                  <span className="font-medium text-slate-700">Items:</span>
+                  <span className="text-slate-500">Items</span>
                   <span>{result.order.items.length} item{result.order.items.length !== 1 ? "s" : ""}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-medium text-slate-700">Total:</span>
-                  <span className="font-semibold">{formatLKR(result.order.totalPrice)}</span>
+                  <span className="text-slate-500">Total</span>
+                  <span className="font-semibold text-slate-800">{formatLKR(result.order.totalPrice)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-medium text-slate-700">Method:</span>
+                  <span className="text-slate-500">Method</span>
                   <span>{result.order.paymentMethod}</span>
                 </div>
               </div>
             )}
 
             {estimatedDelivery && (
-              <div className="mt-3 border-t border-slate-200 pt-3">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                  Estimated Delivery
-                </p>
-                <p className="mt-1 text-xs font-medium text-slate-700">{estimatedDelivery}</p>
+              <div className="mt-2 border-t border-slate-200 pt-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Est. Delivery</span>
+                  <span className="font-medium text-slate-700">{estimatedDelivery}</span>
+                </div>
               </div>
             )}
           </div>
         )}
 
-        <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+        <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
           {isSuccess ? (
             <>
               <Link
@@ -360,12 +360,13 @@ function CheckoutResult({ result, onRetryStripe }) {
                   Retry Payment
                 </button>
               )}
-              <Link
-                to="/checkout"
+              <button
+                type="button"
+                onClick={onBackToCart}
                 className="rounded-xl border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
                 Back to Cart
-              </Link>
+              </button>
             </>
           )}
         </div>
@@ -408,6 +409,12 @@ function ManualPaymentView({
   uploaded,
   error,
 }) {
+  useEffect(() => {
+    if (uploaded) {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [uploaded]);
+
   if (uploaded) {
     const estimatedDelivery = getEstimatedDelivery();
     return (
@@ -459,7 +466,7 @@ function ManualPaymentView({
   }
 
   return (
-    <section className="mx-auto max-w-2xl px-4 py-8">
+    <section className="mx-auto max-w-2xl px-4 py-5">
       <StepIndicator currentStep={2} />
 
       <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm space-y-6">
@@ -560,6 +567,7 @@ function ManualPaymentView({
 // ─── Main Checkout Page ───────────────────────────────────────────────────────
 
 export default function CheckoutPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [cart, setCart] = useState(null);
@@ -662,7 +670,7 @@ export default function CheckoutPage() {
           setCheckoutResult({
             type: "cancelled",
             title: "Payment cancelled",
-            description: "You cancelled the Stripe checkout. Your cart is unchanged — try again whenever you&apos;re ready.",
+            description: "You cancelled the Stripe checkout. Your cart is unchanged — try again whenever you're ready.",
             orderId,
           });
         } else if (paymentState === "success") {
@@ -670,18 +678,23 @@ export default function CheckoutPage() {
           setCheckoutResult({
             type: "success",
             title: "Payment Successful!",
-            description: "Your order has been confirmed. We&apos;ll start preparing it right away.",
+            description: "Your order has been confirmed. We'll start preparing it right away.",
             orderId,
             order,
           });
           trackOrderPurchases(order.items);
+          try {
+            await api.clearCart();
+          } catch {
+            // cart was already cleared server-side by markOrderPaid
+          }
           await loadData();
         } else if (paymentState === "failed") {
           await api.cancelStripeOrder(orderId);
           setCheckoutResult({
             type: "failed",
             title: "Payment failed",
-            description: "The payment didn&apos;t go through. Your cart is intact — try again or choose a different method.",
+            description: "The payment didn't go through. Your cart is intact — try again or choose a different method.",
             orderId,
           });
         }
@@ -837,6 +850,8 @@ export default function CheckoutPage() {
       formData.append("paymentSlip", manualSlipFile);
       await api.uploadPaymentSlip(manualOrderId, formData);
       setSlipUploaded(true);
+      await api.clearCart();
+      await loadData();
     } catch (err) {
       setError(err.message || "Failed to upload payment slip");
     } finally {
@@ -861,6 +876,10 @@ export default function CheckoutPage() {
             ? handleRetryStripe
             : null
         }
+        onBackToCart={() => {
+          setCheckoutResult(null);
+          navigate("/checkout", { replace: true });
+        }}
       />
     );
   }
@@ -883,7 +902,7 @@ export default function CheckoutPage() {
 
   if (cart === null) {
     return (
-      <section className="mx-auto max-w-6xl px-4 py-8">
+      <section className="mx-auto max-w-6xl px-4 py-5">
         <StepIndicator currentStep={1} />
         <CheckoutSkeleton />
       </section>
@@ -893,7 +912,7 @@ export default function CheckoutPage() {
   // ── Render: main checkout ───────────────────────────────────────────────────
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8 space-y-10">
+    <section className="mx-auto max-w-6xl px-4 py-5 space-y-6">
       <StepIndicator currentStep={1} />
 
       <div className="flex items-center justify-between">
@@ -912,9 +931,9 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-start">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-stretch">
         {/* ── Cart Items ─────────────────────────────────────────────────── */}
-        <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+        <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2 min-h-[420px]">
           <div className="mb-5 flex items-center justify-between">
             <h3 className="font-semibold text-slate-800">
               {itemCount} {itemCount === 1 ? "item" : "items"}
@@ -1040,7 +1059,7 @@ export default function CheckoutPage() {
         </article>
 
         {/* ── Order Summary Sidebar ──────────────────────────────────────── */}
-        <aside className="space-y-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24">
+        <aside className="space-y-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:self-start">
           <h3 className="font-semibold text-slate-800">Order Summary</h3>
 
           <div className="space-y-2 rounded-2xl bg-slate-50 p-4 text-sm">

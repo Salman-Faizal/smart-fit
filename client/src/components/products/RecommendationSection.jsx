@@ -1,6 +1,8 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import ProductCard from "./ProductCard";
 import { trackActivity } from "../../lib/trackActivity";
+import { computeNewArrivalIds } from "../../lib/newArrivalUtils";
 
 /**
  * RecommendationSection
@@ -15,6 +17,21 @@ import { trackActivity } from "../../lib/trackActivity";
  *   viewAllTo        string?   — route for "View All →" link
  *   getProductCaption (product) => string | null — optional fn for caption below card
  */
+function SkeletonCard() {
+  return (
+    <div className="w-[210px] flex-shrink-0">
+      <div className="overflow-hidden rounded-xl bg-white animate-pulse shadow-sm">
+        <div className="bg-slate-200" style={{ paddingBottom: "115%" }} />
+        <div className="space-y-2.5 p-3">
+          <div className="h-3.5 w-3/4 rounded bg-slate-200" />
+          <div className="h-3 w-1/2 rounded bg-slate-200" />
+          <div className="h-4 w-1/3 rounded bg-slate-200" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RecommendationSection({
   title,
   badge,
@@ -22,11 +39,14 @@ export default function RecommendationSection({
   products = [],
   emptyLabel,
   tone = "default",
+  loading = false,
   getProductCaption,
   sectionId = "recommendation",
   viewAllTo,
 }) {
-  if (!products.length && !emptyLabel) return null;
+  const newArrivalIds = useMemo(() => computeNewArrivalIds(products), [products]);
+
+  if (!loading && !products.length && !emptyLabel) return null;
 
   const badgeClassName =
     tone === "personal"
@@ -58,18 +78,21 @@ export default function RecommendationSection({
         </div>
       </div>
 
-      {emptyLabel && !products.length ? (
+      {emptyLabel && !loading && !products.length ? (
         <p className="text-sm text-slate-500">{emptyLabel}</p>
       ) : null}
 
       <div className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory pb-2">
-        {products.map((product) => {
+        {loading
+          ? Array.from({ length: 5 }, (_, i) => <SkeletonCard key={i} />)
+          : products.map((product) => {
           const caption = getProductCaption ? getProductCaption(product) : null;
           return (
             <div key={product._id} className="w-[210px] flex-shrink-0 snap-start">
               <ProductCard
                 product={product}
                 to={`/products/${product._id}`}
+                isNewArrival={newArrivalIds.has(String(product._id))}
                 onImageClick={() =>
                   trackActivity("recommendation_click", product._id, {
                     section: sectionId,

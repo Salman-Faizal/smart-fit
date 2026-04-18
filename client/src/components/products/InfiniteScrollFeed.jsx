@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import ProductCard from "./ProductCard";
 import { api } from "../../lib/api";
 import { trackActivity } from "../../lib/trackActivity";
+import { computeNewArrivalIds } from "../../lib/newArrivalUtils";
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -74,13 +75,15 @@ export default function InfiniteScrollFeed({
   const sentinelRef = useRef(null);
   const fetchingRef = useRef(false);
 
+  const newArrivalIds = useMemo(() => computeNewArrivalIds(items), [items]);
+
   const fetchPage = useCallback(
     async (activeCursor) => {
       if (fetchingRef.current) return;
       fetchingRef.current = true;
 
       try {
-        const params = { limit: 12 };
+        const params = { limit: 25 };
         if (activeCursor) {
           params.cursor = activeCursor;
         } else if (excludeIds) {
@@ -142,7 +145,7 @@ export default function InfiniteScrollFeed({
   }, [cursor, hasMore, loadingMore, initialLoading, fetchPage]);
 
   return (
-    <section id="discover" className="space-y-6 scroll-mt-28">
+    <section className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
         <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>
@@ -167,7 +170,7 @@ export default function InfiniteScrollFeed({
 
       {initialLoading ? (
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 12 }, (_, i) => (
+          {Array.from({ length: 25 }, (_, i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
@@ -180,6 +183,7 @@ export default function InfiniteScrollFeed({
                   key={product._id}
                   product={product}
                   to={`/products/${product._id}`}
+                  isNewArrival={newArrivalIds.has(String(product._id))}
                   onImageClick={() =>
                     trackActivity("recommendation_click", product._id, {
                       section: "discover",

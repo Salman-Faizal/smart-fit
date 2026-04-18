@@ -292,7 +292,7 @@ function PromoBanner() {
 
 // ─── Memoized recommendation sub-components ──────────────────────────────────
 
-const MemoTopPicks = memo(function TopPicksSection({ label, isColdStart, products, getProductCaption }) {
+const MemoTopPicks = memo(function TopPicksSection({ label, isColdStart, products, loading, getProductCaption }) {
   return (
     <RecommendationSection
       title={label}
@@ -303,6 +303,7 @@ const MemoTopPicks = memo(function TopPicksSection({ label, isColdStart, product
       }
       tone="personal"
       products={products}
+      loading={loading}
       sectionId="top-picks"
       viewAllTo="/search"
       getProductCaption={getProductCaption}
@@ -310,12 +311,13 @@ const MemoTopPicks = memo(function TopPicksSection({ label, isColdStart, product
   );
 });
 
-const MemoTrending = memo(function TrendingSection({ products }) {
+const MemoTrending = memo(function TrendingSection({ products, loading }) {
   return (
     <RecommendationSection
       title="Trending Now"
       subtitle="Global best-performers driven by store-wide views and purchases."
       products={products}
+      loading={loading}
       sectionId="trending"
       viewAllTo="/search?sort=popularity"
     />
@@ -329,7 +331,9 @@ export default function CustomerHome() {
   const navigate = useNavigate();
 
   const [trendingRaw, setTrendingRaw] = useState([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
   const [topPicks, setTopPicks] = useState([]);
+  const [topPicksLoading, setTopPicksLoading] = useState(true);
   const [topPicksLabel, setTopPicksLabel] = useState("Top Picks For You");
   const [topPicksIsColdStart, setTopPicksIsColdStart] = useState(false);
   const [registeredUsers, setRegisteredUsers] = useState(
@@ -356,6 +360,14 @@ export default function CustomerHome() {
     () => [...trendingRaw, ...topPicks].map((p) => p._id).join(","),
     [trendingRaw, topPicks],
   );
+
+  // Lock excludeIds once all recommendation sections have finished loading so
+  // InfiniteScrollFeed only fetches once and never resets due to late-arriving data.
+  const discoverReady = !trendingLoading && !topPicksLoading;
+  const lockedExcludeRef = useRef(null);
+  if (discoverReady && lockedExcludeRef.current === null) {
+    lockedExcludeRef.current = discoverExcludeIds;
+  }
 
   const getTopPickCaption = useCallback((product) => product.reason ?? null, []);
 
@@ -395,19 +407,23 @@ export default function CustomerHome() {
   }, []);
 
   useEffect(() => {
+    setTrendingLoading(true);
     api
       .getTrendingWithRanks({ limit: 20 })
       .then((data) => setTrendingRaw(data.products || []))
-      .catch(() => setTrendingRaw([]));
+      .catch(() => setTrendingRaw([]))
+      .finally(() => setTrendingLoading(false));
   }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
       setTopPicks([]);
+      setTopPicksLoading(false);
       return;
     }
 
     const load = async () => {
+      setTopPicksLoading(true);
       try {
         const excludeIds = trendingRaw.map((p) => p._id).join(",");
         const data = await api.getTopPicksForUser(
@@ -418,6 +434,8 @@ export default function CustomerHome() {
         setTopPicksIsColdStart(data.isColdStart ?? false);
       } catch {
         setTopPicks([]);
+      } finally {
+        setTopPicksLoading(false);
       }
     };
     load();
@@ -502,12 +520,13 @@ export default function CustomerHome() {
       </FadeSection>
 
       {/* ── 3. Top Picks For You (authenticated only) ────────────────────── */}
-      {isAuthenticated && topPicks.length > 0 ? (
+      {isAuthenticated && (topPicksLoading || topPicks.length > 0) ? (
         <FadeSection id="for-you">
           <MemoTopPicks
             label={topPicksLabel}
             isColdStart={topPicksIsColdStart}
             products={topPicks}
+            loading={topPicksLoading}
             getProductCaption={getTopPickCaption}
           />
         </FadeSection>
@@ -515,7 +534,7 @@ export default function CustomerHome() {
 
       {/* ── 4. Trending Now ─────────────────────────────────────────────── */}
       <FadeSection id="trending">
-        <MemoTrending products={trending} />
+        <MemoTrending products={trending} loading={trendingLoading} />
       </FadeSection>
 
       {/* ── 5. Promo Banner ─────────────────────────────────────────────── */}
@@ -526,7 +545,8 @@ export default function CustomerHome() {
       {/* ── 6. Discover More (infinite scroll) ──────────────────────────── */}
       <FadeSection id="discover">
         <InfiniteScrollFeed
-          excludeIds={discoverExcludeIds}
+          key={discoverReady ? "ready" : "waiting"}
+          excludeIds={discoverReady ? lockedExcludeRef.current : ""}
           title="Discover More"
           subtitle="A curated mix of rising products and fresh categories to expand your wardrobe."
         />

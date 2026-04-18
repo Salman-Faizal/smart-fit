@@ -31,8 +31,18 @@ import {
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const AMBER = "#d97706";
 const DONUT_COLORS = ["#fde68a", "#fbbf24", "#f59e0b", "#d97706", "#b45309", "#fed7aa", "#fdba74", "#fb923c"];
+// amber-200 → amber-300 → amber-400 → amber-500 → amber-700 (lightest to darkest)
+const FUNNEL_COLORS = ["#fde68a", "#fcd34d", "#fbbf24", "#f59e0b", "#b45309"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function abbreviate(value, prefix = "") {
+  const n = Number(value ?? 0);
+  if (n >= 1_000_000) return `${prefix}${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${prefix}${(n / 1_000).toFixed(1)}K`;
+  return `${prefix}${n.toLocaleString()}`;
+}
+
 function useFetch(fetcher, deps = []) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -193,7 +203,7 @@ function WeeklyStatCards() {
       icon: ShoppingBag,
       color: "text-amber-600",
       bg: "bg-amber-50",
-      format: (v) => formatLKR(v),
+      format: (v) => abbreviate(v, "LKR "),
     },
     {
       key: "orders",
@@ -201,7 +211,7 @@ function WeeklyStatCards() {
       icon: ShoppingCart,
       color: "text-blue-600",
       bg: "bg-blue-50",
-      format: (v) => v.toLocaleString(),
+      format: (v) => abbreviate(v),
     },
     {
       key: "customers",
@@ -209,7 +219,7 @@ function WeeklyStatCards() {
       icon: Users,
       color: "text-emerald-600",
       bg: "bg-emerald-50",
-      format: (v) => v.toLocaleString(),
+      format: (v) => abbreviate(v),
     },
   ];
 
@@ -240,15 +250,17 @@ function WeeklyStatCards() {
               <div className={`rounded-xl p-2 ${card.bg}`}>
                 <Icon className={`h-5 w-5 ${card.color}`} />
               </div>
-              <span className={`flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ${positive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
-                {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                {positive ? "+" : ""}{stat.change}%
-              </span>
+              <div className="flex flex-col items-end gap-0.5">
+                <span className={`flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ${positive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                  {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {positive ? "+" : ""}{stat.change}%
+                </span>
+                <p className="text-[10px] text-slate-400">vs last week</p>
+              </div>
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900">{card.format(stat.current)}</p>
               <p className="mt-0.5 text-xs font-medium text-slate-400">{card.title}</p>
-              <p className="mt-0.5 text-[11px] text-slate-400">vs last week</p>
             </div>
           </CardShell>
         );
@@ -281,16 +293,16 @@ function TopCategoriesCard() {
       ) : !data?.length ? (
         <EmptyState label="No category data yet" />
       ) : (
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-44 w-full">
+        <div className="flex flex-1 flex-col justify-between gap-3">
+          <div className="h-48 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={data}
                   cx="50%"
                   cy="50%"
-                  innerRadius={52}
-                  outerRadius={82}
+                  innerRadius={54}
+                  outerRadius={84}
                   dataKey="value"
                   paddingAngle={2}
                   label={renderCenter}
@@ -307,7 +319,7 @@ function TopCategoriesCard() {
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <ul className="w-full space-y-1.5">
+          <ul className="w-full space-y-2.5">
             {data.slice(0, 5).map((item, i) => (
               <li key={item.name} className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-2">
@@ -517,7 +529,7 @@ function MonthlyTargetCard() {
   };
 
   return (
-    <CardShell className="flex flex-col">
+    <CardShell className="flex flex-col [&_.mb-4]:mb-2">
       <CardHeader
         title="Monthly Target"
         subtitle={new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}
@@ -529,14 +541,14 @@ function MonthlyTargetCard() {
       />
 
       {loading ? (
-        <div className="flex flex-1 flex-col items-center gap-3 py-4">
+        <div className="flex flex-1 flex-col items-center gap-3 py-2">
           <Skeleton className="h-32 w-32 rounded-full" />
           <Skeleton className="h-4 w-24" />
           <Skeleton className="h-3 w-40" />
         </div>
       ) : (
         <div className="flex flex-1 flex-col items-center">
-          <div className="relative h-36 w-full">
+          <div className="relative h-32 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -563,12 +575,12 @@ function MonthlyTargetCard() {
             </div>
           </div>
 
-          <p className="mt-1 text-sm font-semibold text-amber-600">{label}</p>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-0.5 text-sm font-semibold text-amber-600">{label}</p>
+          <p className="text-xs text-slate-400">
             Our target is {formatLKR(data?.target || 0)} / month
           </p>
 
-          <div className="mt-4 grid w-full grid-cols-2 gap-2">
+          <div className="mt-3 grid w-full grid-cols-2 gap-2">
             <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-center">
               <p className="text-[10px] text-slate-400">Revenue</p>
               <p className="mt-0.5 text-sm font-bold text-slate-900">{formatLKR(data?.revenue || 0)}</p>
@@ -636,7 +648,7 @@ function ConversionFunnelCard() {
             <BarChart
               data={data}
               margin={{ top: 16, right: 8, left: 0, bottom: 28 }}
-              barSize={28}
+              barCategoryGap={0}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis
@@ -659,7 +671,10 @@ function ConversionFunnelCard() {
                 ]}
                 contentStyle={{ borderRadius: "12px", border: "1px solid #f1f5f9", fontSize: "11px" }}
               />
-              <Bar dataKey="count" fill={AMBER} radius={[4, 4, 0, 0]}>
+              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                {data.map((_, i) => (
+                  <Cell key={i} fill={FUNNEL_COLORS[i % FUNNEL_COLORS.length]} />
+                ))}
                 <LabelList content={<CustomBarLabel />} />
               </Bar>
             </BarChart>

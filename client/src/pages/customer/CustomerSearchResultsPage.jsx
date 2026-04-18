@@ -1,8 +1,122 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import ProductCard from "../../components/products/ProductCard";
 import { ErrorState, LoadingState } from "../../components/common/StatusState";
-import { api } from "../../lib/api";
+import { api, assetUrl } from "../../lib/api";
+import { formatLKR } from "../../lib/formatLKR";
+import { computeNewArrivalIds } from "../../lib/newArrivalUtils";
+import { useWishlist } from "../../context/WishlistContext";
+import { useAuth } from "../../hooks/useAuth";
+
+const PLACEHOLDER = "https://placehold.co/400x500?text=No+Image";
+
+function StarIcon() {
+  return (
+    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
+function simpleHash(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+function seededRating(productId) {
+  const id = String(productId || "x");
+  const h1 = simpleHash(id);
+  const h2 = simpleHash(id + "rev");
+  return { rating: (4.1 + (h1 % 9) * 0.1).toFixed(1), reviews: 40 + (h2 % 261) };
+}
+
+function ProductListRow({ product, isNewArrival }) {
+  const { isAuthenticated } = useAuth();
+  const { isWishlisted, toggle } = useWishlist();
+  const [cartState, setCartState] = useState("idle");
+  const productId = String(product._id);
+  const wishlisted = isAuthenticated ? isWishlisted(productId) : false;
+  const { rating, reviews } = seededRating(productId);
+  const stock = Number(product.stock ?? 1);
+  const isOutOfStock = stock === 0;
+
+  const handleWishlist = async (e) => {
+    e.preventDefault();
+    if (!isAuthenticated) return;
+    await toggle(productId);
+  };
+
+  const handleAddToCart = async (e) => {
+    e.preventDefault();
+    if (isOutOfStock || cartState !== "idle" || !isAuthenticated) return;
+    setCartState("adding");
+    try {
+      await api.addToCart({ productId, quantity: 1 });
+      setCartState("added");
+      setTimeout(() => setCartState("idle"), 2000);
+    } catch {
+      setCartState("idle");
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-3 transition hover:bg-slate-50">
+      <Link to={`/products/${productId}`} className="flex-shrink-0">
+        <img
+          src={assetUrl(product.images?.[0]) || PLACEHOLDER}
+          alt={product.name}
+          className="h-[100px] w-[100px] rounded-xl object-cover"
+          onError={(e) => { e.target.onerror = null; e.target.src = PLACEHOLDER; }}
+        />
+      </Link>
+
+      <div className="flex flex-1 min-w-0 flex-col gap-1">
+        <Link to={`/products/${productId}`} className="line-clamp-1 font-semibold text-slate-900 hover:text-amber-700 transition">
+          {product.name}
+        </Link>
+        <span className="text-xs text-slate-400">{product.category}</span>
+        <div className="flex items-center gap-1 text-amber-400">
+          <StarIcon />
+          <span className="text-xs text-slate-500">{rating} ({reviews})</span>
+          {isNewArrival && (
+            <span className="ml-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">New</span>
+          )}
+          {isOutOfStock && (
+            <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600">Out of Stock</span>
+          )}
+        </div>
+        <p className="text-sm font-bold text-slate-900">{formatLKR(product.price)}</p>
+      </div>
+
+      <div className="flex flex-shrink-0 flex-col gap-2">
+        <button
+          type="button"
+          onClick={handleAddToCart}
+          disabled={isOutOfStock || cartState === "adding"}
+          className={`rounded-xl px-4 py-2 text-xs font-semibold transition disabled:opacity-50 ${
+            cartState === "added"
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-amber-600 text-white hover:bg-amber-700"
+          }`}
+        >
+          {cartState === "adding" ? "Adding…" : cartState === "added" ? "✓ Added" : "Add to Cart"}
+        </button>
+        <button
+          type="button"
+          onClick={handleWishlist}
+          className={`rounded-xl border px-4 py-2 text-xs font-semibold transition ${
+            wishlisted
+              ? "border-rose-200 bg-rose-50 text-rose-600"
+              : "border-slate-200 text-slate-500 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500"
+          }`}
+        >
+          {wishlisted ? "♥ Saved" : "♡ Wishlist"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const PAGE_LIMIT = 18;
 
@@ -84,6 +198,7 @@ export default function CustomerSearchResultsPage() {
   const [error, setError] = useState("");
 
   const hasMore = products.length < total;
+  const newArrivalIds = useMemo(() => computeNewArrivalIds(products), [products]);
   const loaderRef = useRef(null);
 
   useEffect(() => {
@@ -329,7 +444,7 @@ export default function CustomerSearchResultsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <aside className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm h-fit lg:sticky lg:top-28">
+        <aside className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-28 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto scrollbar-hide">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2">
             <h3 className="text-base font-semibold text-slate-900">Filter</h3>
             <button
@@ -464,7 +579,20 @@ export default function CustomerSearchResultsPage() {
         </aside>
 
         <div className="space-y-5">
-          {loading && <LoadingState label="Loading products..." />}
+          {loading && (
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 9 }, (_, i) => (
+                <div key={i} className="overflow-hidden rounded-xl bg-white animate-pulse shadow-sm">
+                  <div className="bg-slate-200" style={{ paddingBottom: "115%" }} />
+                  <div className="space-y-2.5 p-3">
+                    <div className="h-3.5 w-3/4 rounded bg-slate-200" />
+                    <div className="h-3 w-1/2 rounded bg-slate-200" />
+                    <div className="h-4 w-1/3 rounded bg-slate-200" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {error && <ErrorState message={error} />}
 
           {hasNoResults ? (
@@ -498,13 +626,22 @@ export default function CustomerSearchResultsPage() {
 
           {!hasNoResults ? (
             <div className={resultsGridClass}>
-              {products.map((product) => (
-                <ProductCard
-                  key={product._id}
-                  product={product}
-                  to={`/products/${product._id}`}
-                />
-              ))}
+              {products.map((product) =>
+                layout === "list" ? (
+                  <ProductListRow
+                    key={product._id}
+                    product={product}
+                    isNewArrival={newArrivalIds.has(String(product._id))}
+                  />
+                ) : (
+                  <ProductCard
+                    key={product._id}
+                    product={product}
+                    to={`/products/${product._id}`}
+                    isNewArrival={newArrivalIds.has(String(product._id))}
+                  />
+                )
+              )}
             </div>
           ) : null}
 

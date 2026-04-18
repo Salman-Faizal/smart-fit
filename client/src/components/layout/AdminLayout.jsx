@@ -113,12 +113,12 @@ export default function AdminLayout() {
         </div>
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4 pt-3">
         {PRIMARY_NAV.map((item) => (
           <NavItem key={item.to} item={item} collapsed={false} onClick={onNavClick} />
         ))}
 
-        <div className="my-3 border-t border-slate-200" />
+        <div className="my-5 border-t border-slate-200" />
 
         {SECONDARY_NAV.map((item) => (
           <NavItem key={item.to} item={item} collapsed={false} onClick={onNavClick} />
@@ -166,7 +166,7 @@ export default function AdminLayout() {
       {/* Main content */}
       <div className="lg:ml-[220px]">
         {/* Top header */}
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 lg:px-6">
+        <header className="flex items-center justify-between bg-[#F8F9FA] px-4 py-3 lg:px-6">
           <div className="flex items-center gap-3">
             <button
               type="button"

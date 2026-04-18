@@ -68,6 +68,15 @@ exports.removeCartItem = async (req, res) => {
   }
 };
 
+exports.clearCartItems = async (req, res) => {
+  try {
+    await orderService.clearCart(req.user.id);
+    return res.status(200).json({ message: "Cart cleared" });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 exports.checkoutOrder = async (req, res) => {
   try {
     const { paymentMethod } = req.body || {};

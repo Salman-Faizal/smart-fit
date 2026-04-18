@@ -106,6 +106,11 @@ export const api = {
     notifyCartChanged();
     return data;
   },
+  clearCart: async () => {
+    const data = await request("/orders/cart", { method: "DELETE" });
+    notifyCartChanged();
+    return data;
+  },
   checkoutOrder: async (paymentMethod) => {
     const data = await request("/orders/checkout", {
       method: "POST",

@@ -1,62 +1,61 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Wand2, X } from "lucide-react";
+import { Wand2 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
-
-const SESSION_KEY = "smartfit_quiz_cta_dismissed";
 
 export default function QuizFloatingCTA() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
-    if (sessionStorage.getItem(SESSION_KEY) === "1") {
-      setDismissed(true);
-    }
-  }, []);
-
-  if (!isAuthenticated || dismissed) return null;
-
-  const handleDismiss = (e) => {
-    e.stopPropagation();
-    sessionStorage.setItem(SESSION_KEY, "1");
-    setDismissed(true);
-  };
+  if (!isAuthenticated) return null;
 
   return (
     <>
       <style>{`
-        @keyframes wand-pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.1); }
+        @keyframes quiz-ring-pulse {
+          0% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4); }
+          100% { box-shadow: 0 0 0 12px rgba(217, 119, 6, 0); }
         }
-        .quiz-wand-pulse {
-          animation: wand-pulse 2s ease-in-out infinite;
-          display: flex;
+        .quiz-ring-pulse {
+          animation: quiz-ring-pulse 1.5s ease-out infinite;
+        }
+        .quiz-pill {
+          display: inline-flex;
           align-items: center;
+          overflow: hidden;
+          width: 48px;
+          transition: width 0.3s ease;
+          white-space: nowrap;
+        }
+        .quiz-pill:hover {
+          width: 180px;
+        }
+        .quiz-pill-text {
+          opacity: 0;
+          width: 0;
+          transition: opacity 0.25s ease 0.05s, width 0.3s ease;
+          overflow: hidden;
+        }
+        .quiz-pill:hover .quiz-pill-text {
+          opacity: 1;
+          width: auto;
         }
       `}</style>
 
-      <div className="fixed bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2">
+      <div className="fixed bottom-6 right-4 sm:right-6 z-50">
         <button
+          type="button"
           onClick={() => navigate("/quiz")}
-          className="flex items-center gap-2.5 bg-amber-600 text-white pl-4 pr-5 py-3 rounded-full shadow-lg hover:shadow-xl hover:scale-[1.03] transition-all duration-200 ease-out select-none"
+          className="quiz-pill quiz-ring-pulse h-12 rounded-full bg-amber-600 text-white shadow-lg hover:shadow-xl cursor-pointer select-none flex-row-reverse"
+          aria-label="Find your style"
         >
-          <span className="quiz-wand-pulse">
-            <Wand2 size={17} />
+          {/* Icon — always visible, on the right */}
+          <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center">
+            <Wand2 size={20} />
           </span>
-          <span className="text-sm font-semibold whitespace-nowrap tracking-wide">
+          {/* Text — revealed on hover, on the left */}
+          <span className="quiz-pill-text pl-4 text-sm font-semibold tracking-wide">
             Find your style
           </span>
-        </button>
-
-        <button
-          onClick={handleDismiss}
-          aria-label="Dismiss style quiz"
-          className="flex items-center justify-center w-7 h-7 rounded-full bg-white shadow text-slate-400 hover:text-slate-700 hover:shadow-md transition-all duration-150"
-        >
-          <X size={13} strokeWidth={2.5} />
         </button>
       </div>
     </>

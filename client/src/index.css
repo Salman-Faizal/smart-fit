@@ -28,6 +28,14 @@ body {
   scrollbar-width: none;
 }
 
+/* Offset for fixed navbar when scrolling to anchor sections */
+html {
+  scroll-padding-top: 5rem;
+}
+[id] {
+  scroll-margin-top: 5rem;
+}
+
 /* Smooth page transitions */
 @layer utilities {
   .transition-all {

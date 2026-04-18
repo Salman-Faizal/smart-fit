@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import ScrollToTop from "./components/common/ScrollToTop";
 import AdminLayout from "./components/layout/AdminLayout";
 import CustomerLayout from "./components/layout/CustomerLayout";
 import {
@@ -28,7 +29,9 @@ import AdminForecastPage from "./pages/admin/AdminForecastPage";
 
 function App() {
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       <Route path="/" element={<RootRedirect />} />
       <Route path="/signin" element={<SignIn />} />
 
@@ -65,6 +68,7 @@ function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }
 

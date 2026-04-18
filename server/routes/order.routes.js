@@ -6,6 +6,7 @@ const orderController = require("../controllers/order.controller");
 router.post("/orders/cart", protect, orderController.addToCart);
 router.get("/orders/cart", protect, orderController.getCart);
 router.put("/orders/cart/:itemId", protect, orderController.updateCartItem);
+router.delete("/orders/cart", protect, orderController.clearCartItems);
 router.delete("/orders/cart/:itemId", protect, orderController.removeCartItem);
 router.post("/orders/checkout", protect, orderController.checkoutOrder);
 router.get("/orders/my", protect, orderController.getOrdersByUser);
