@@ -1,4 +1,6 @@
 const paymentService = require("../services/payment.service");
+const User = require("../models/User");
+const { sendEmail, paymentSlipAcknowledgementEmail } = require("../services/email.service");
 
 const handleError = (res, error) => {
   const statusCode = error.statusCode || 500;
@@ -27,6 +29,15 @@ exports.uploadPaymentSlip = async (req, res) => {
       orderId,
       req.file,
     );
+
+    const user = await User.findById(req.user.id).select("name email");
+    if (user) {
+      sendEmail(
+        user.email,
+        `We've received your payment proof — #${String(order._id).slice(-8).toUpperCase()}`,
+        paymentSlipAcknowledgementEmail(user.name, order),
+      ).catch(() => {});
+    }
 
     return res.status(200).json({
       message: "Payment slip uploaded successfully",

@@ -196,34 +196,32 @@ export default function ProductCard({
       {/* ── Image area ───────────────────────────────────────────────────── */}
       <Link to={destination} className="relative block overflow-hidden bg-slate-100" style={{ paddingBottom: "115%" }}>
         <img
-          src={assetUrl(product.images?.[0]) || PLACEHOLDER}
+          src={assetUrl(product.primaryImage || product.images?.[0]) || PLACEHOLDER}
           alt={product.name}
           className="absolute inset-0 h-full w-full object-cover"
           loading="lazy"
           onError={(e) => { e.target.onerror = null; e.target.src = PLACEHOLDER; }}
         />
 
-        {/* Top-left stock badge */}
-        {isOutOfStock ? (
-          <span className="absolute left-2.5 top-2.5 rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-semibold text-white leading-none shadow-sm">
-            Out of Stock
-          </span>
-        ) : isAlmostSoldOut ? (
-          <span className="absolute left-2.5 top-2.5 rounded-full bg-red-500 px-2.5 py-1 text-[10px] font-semibold text-white leading-none shadow-sm">
-            Almost Sold Out
-          </span>
-        ) : null}
-
-        {/* Top-right trend/new badge */}
-        {isTopSelling ? (
-          <span className="absolute right-2.5 top-2.5 rounded-full bg-amber-500 px-2.5 py-1 text-[10px] font-semibold text-white leading-none shadow-sm">
-            Top Selling
-          </span>
-        ) : isNewArrival ? (
-          <span className="absolute right-2.5 top-2.5 rounded-full bg-sky-500 px-2.5 py-1 text-[10px] font-semibold text-white leading-none shadow-sm">
-            New Arrival
-          </span>
-        ) : null}
+        {/* Top-right badges — priority: Almost Sold Out > Top Selling > New Arrival > Out of Stock, max 2 */}
+        {(() => {
+          const badges = [];
+          if (isAlmostSoldOut) badges.push({ key: "almost", label: "⚡ Almost Sold Out" });
+          else if (isOutOfStock) badges.push({ key: "out", label: "🚫 Out of Stock" });
+          if (isTopSelling) badges.push({ key: "top", label: "🔥 Top Selling" });
+          else if (isNewArrival) badges.push({ key: "new", label: "✨ New Arrival" });
+          const shown = badges.slice(0, 2);
+          if (!shown.length) return null;
+          return (
+            <div className="absolute right-2.5 top-2.5 flex flex-col items-end gap-1">
+              {shown.map((b) => (
+                <span key={b.key} className="rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-semibold text-white leading-none shadow-sm backdrop-blur-sm">
+                  {b.label}
+                </span>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Floating action row — appears on hover */}
         <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 px-3 pb-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100">

@@ -49,7 +49,7 @@ function toObjectIds(ids) {
  * If the category pool is too small it tops up from any other category.
  */
 async function categoryFallback({ category, excludeOids, limit }) {
-  const base = { stock: { $gt: 0 }, _id: { $nin: excludeOids } };
+  const base = { stock: { $gt: 0 }, status: { $ne: "deleted" }, _id: { $nin: excludeOids } };
 
   const primary = await Product.find({ ...base, category })
     .select(ALSO_VIEWED_SELECT)
@@ -271,6 +271,7 @@ async function getAlsoViewed({ productId, userId = null, excludeIds = [] }) {
   const productDocs = await Product.find({
     _id: { $in: topIds },
     stock: { $gt: 0 },
+    status: { $ne: "deleted" },
   })
     .select(ALSO_VIEWED_SELECT)
     .lean();

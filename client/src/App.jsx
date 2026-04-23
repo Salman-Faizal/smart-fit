@@ -9,6 +9,7 @@ import {
   RootRedirect,
 } from "./routes/RouteGuards";
 import SignIn from "./pages/SignIn";
+import Register from "./pages/Register";
 import CustomerHome from "./pages/customer/CustomerHome";
 import CustomerProductDetail from "./pages/customer/CustomerProductDetail";
 import CustomerProfilePage from "./pages/customer/CustomerProfilePage";
@@ -34,6 +35,7 @@ function App() {
       <Routes>
       <Route path="/" element={<RootRedirect />} />
       <Route path="/signin" element={<SignIn />} />
+      <Route path="/register" element={<Register />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<CustomerRoute />}>

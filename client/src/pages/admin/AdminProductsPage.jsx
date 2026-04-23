@@ -28,9 +28,9 @@ const SORT_OPTIONS = [
   { value: "stock_desc", label: "Stock High-Low" },
 ];
 
-const SAMPLE_CSV = `Name,Category,Description,Price,Stock,Sizes,Status,ImageURL
-Slim Fit Shirt,Shirts,Premium cotton slim fit shirt,2500,50,"S,M,L,XL",active,
-Chino Pants,Pants,Classic chino trousers,3200,30,"M,L,XL,XXL",active,`;
+const SAMPLE_CSV = `Name,Category,Description,Price,Stock,Sizes,Status,PrimaryImageURL,SecondaryImageURLs,Fit,Style,Occasion,ColorFamily
+Slim Fit Shirt,Shirts,Premium cotton slim fit shirt,2500,50,"S,M,L,XL",active,https://example.com/shirt-front.jpg,https://example.com/shirt-back.jpg|https://example.com/shirt-detail.jpg,Slim,Classic,Casual,Neutrals
+Chino Pants,Chinos,Classic chino trousers,3200,30,"M,L,XL,XXL",active,https://example.com/chino-front.jpg,,Regular,Smart Casual,Formal,Earth Tones`;
 
 function downloadSampleCsv() {
   const blob = new Blob([SAMPLE_CSV], { type: "text/csv" });
@@ -247,7 +247,17 @@ export default function AdminProductsPage() {
       try {
         const rows = parseCsv(e.target.result);
         if (!rows.length) throw new Error("No data rows found in file");
-        setCsvPreview(rows);
+        // Validate and annotate rows
+        const annotated = rows.map((r) => ({
+          ...r,
+          _primaryImage: (r.primaryimageurl || "").trim(),
+          _secondaryImages: (r.secondaryimageurls || "")
+            .split("|")
+            .map((u) => u.trim())
+            .filter(Boolean),
+          _error: !(r.primaryimageurl || "").trim() ? "Primary image is required" : "",
+        }));
+        setCsvPreview(annotated);
       } catch (err) {
         setCsvError(err.message);
       }
@@ -257,9 +267,14 @@ export default function AdminProductsPage() {
 
   const handleCsvImport = async () => {
     if (!csvPreview?.length) return;
+    const importable = csvPreview.filter((r) => !r._error);
+    if (!importable.length) {
+      setCsvError("No valid rows to import — fix errors first.");
+      return;
+    }
     setCsvImporting(true);
     try {
-      const result = await api.bulkCreateProducts(csvPreview.map((r) => ({
+      const result = await api.bulkCreateProducts(importable.map((r) => ({
         name: r.name,
         category: r.category,
         description: r.description,
@@ -267,7 +282,12 @@ export default function AdminProductsPage() {
         stock: r.stock,
         sizes: r.sizes,
         status: r.status || "active",
-        imageUrl: r.imageurl || r.imageUrl || r["imageurl"] || "",
+        primaryImage: r._primaryImage,
+        secondaryImages: r._secondaryImages,
+        fit: r.fit || "",
+        style: r.style || "",
+        occasion: r.occasion || "",
+        colorFamily: r.colorfamily || "",
       })));
       showToast(`Imported ${result.created} product(s)${result.errors?.length ? `, ${result.errors.length} error(s)` : ""}`);
       setShowBulkModal(false);
@@ -415,9 +435,9 @@ export default function AdminProductsPage() {
                         className="h-4 w-4 rounded accent-amber-600" />
                     </td>
                     <td className="px-4 py-3">
-                      {p.images?.[0] ? (
+                      {(p.primaryImage || p.images?.[0]) ? (
                         <img
-                          src={p.images[0]}
+                          src={p.primaryImage || p.images[0]}
                           alt={p.name}
                           className="h-10 w-10 rounded-lg object-cover bg-slate-100"
                           onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
@@ -564,12 +584,18 @@ export default function AdminProductsPage() {
       {showBulkModal && (
         <Modal onClose={() => { setShowBulkModal(false); setCsvPreview(null); setCsvError(""); }} title="Bulk Upload Products">
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-slate-600">Upload a CSV file to import multiple products at once.</p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm text-slate-600">Upload a CSV to import multiple products at once.</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  <span className="font-semibold">Required:</span> Name, Category, Price, Stock, PrimaryImageURL &nbsp;·&nbsp;
+                  <span className="font-semibold">Optional:</span> Description, Sizes, Status, SecondaryImageURLs (pipe-separated), Fit, Style, Occasion, ColorFamily
+                </p>
+              </div>
               <button type="button" onClick={downloadSampleCsv}
-                className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:underline">
+                className="shrink-0 flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:underline">
                 <Download className="h-3.5 w-3.5" />
-                Sample CSV
+                Template
               </button>
             </div>
 
@@ -588,29 +614,72 @@ export default function AdminProductsPage() {
             ) : (
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-medium text-slate-700">{csvPreview.length} rows ready to import</p>
+                  <p className="text-sm font-medium text-slate-700">
+                    {csvPreview.filter((r) => !r._error).length} of {csvPreview.length} rows valid
+                    {csvPreview.some((r) => r._error) && (
+                      <span className="ml-2 text-red-500 text-xs">{csvPreview.filter((r) => r._error).length} error(s)</span>
+                    )}
+                  </p>
                   <button type="button" onClick={() => { setCsvPreview(null); if (fileRef.current) fileRef.current.value = ""; }}
                     className="text-xs text-slate-400 hover:text-slate-700">Clear</button>
                 </div>
-                <div className="max-h-48 overflow-auto rounded-xl border border-slate-200">
+                <div className="max-h-56 overflow-auto rounded-xl border border-slate-200">
                   <table className="min-w-full text-xs">
-                    <thead className="bg-slate-50">
-                      <tr>{Object.keys(csvPreview[0]).map((h) => (
-                        <th key={h} className="px-3 py-2 text-left font-medium text-slate-500">{h}</th>
-                      ))}</tr>
+                    <thead className="sticky top-0 bg-slate-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-slate-500">Name</th>
+                        <th className="px-3 py-2 text-left font-medium text-slate-500">Category</th>
+                        <th className="px-3 py-2 text-left font-medium text-slate-500">Price</th>
+                        <th className="px-3 py-2 text-left font-medium text-slate-500">Stock</th>
+                        <th className="px-3 py-2 text-left font-medium text-slate-500">Primary Image</th>
+                        <th className="px-3 py-2 text-left font-medium text-slate-500">Secondary</th>
+                        <th className="px-3 py-2 text-left font-medium text-slate-500">Status</th>
+                      </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {csvPreview.slice(0, 5).map((row, i) => (
-                        <tr key={i}>
-                          {Object.values(row).map((v, j) => (
-                            <td key={j} className="max-w-[120px] truncate px-3 py-1.5 text-slate-700">{v}</td>
-                          ))}
+                      {csvPreview.slice(0, 8).map((row, i) => (
+                        <tr key={i} className={row._error ? "bg-red-50" : ""}>
+                          <td className="max-w-[120px] truncate px-3 py-1.5 font-medium text-slate-800">{row.name || "—"}</td>
+                          <td className="px-3 py-1.5 text-slate-600">{row.category || "—"}</td>
+                          <td className="px-3 py-1.5 text-slate-600">{row.price || "—"}</td>
+                          <td className="px-3 py-1.5 text-slate-600">{row.stock ?? "—"}</td>
+                          <td className="px-3 py-1.5">
+                            {row._error ? (
+                              <span className="text-red-500 font-medium">{row._error}</span>
+                            ) : row._primaryImage ? (
+                              <div className="flex items-center gap-2">
+                                <img
+                                  src={row._primaryImage}
+                                  alt=""
+                                  className="h-7 w-7 rounded object-cover bg-slate-100 shrink-0"
+                                  onError={(e) => { e.target.style.display = "none"; }}
+                                />
+                                <span className="max-w-[80px] truncate text-slate-500">{row._primaryImage.split("/").pop()}</span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-1.5 text-slate-500">
+                            {row._secondaryImages?.length ? `${row._secondaryImages.length} image(s)` : "—"}
+                          </td>
+                          <td className="px-3 py-1.5">
+                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                              (row.status || "active") === "active"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-slate-100 text-slate-500"
+                            }`}>
+                              {row.status || "active"}
+                            </span>
+                          </td>
                         </tr>
                       ))}
-                      {csvPreview.length > 5 && (
-                        <tr><td colSpan={Object.keys(csvPreview[0]).length} className="px-3 py-2 text-center text-slate-400">
-                          +{csvPreview.length - 5} more rows
-                        </td></tr>
+                      {csvPreview.length > 8 && (
+                        <tr>
+                          <td colSpan={7} className="px-3 py-2 text-center text-slate-400">
+                            +{csvPreview.length - 8} more rows
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
@@ -624,9 +693,9 @@ export default function AdminProductsPage() {
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => { setShowBulkModal(false); setCsvPreview(null); }}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50">Cancel</button>
-                <button type="button" onClick={handleCsvImport} disabled={csvImporting}
+                <button type="button" onClick={handleCsvImport} disabled={csvImporting || !csvPreview.some((r) => !r._error)}
                   className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 hover:bg-amber-700">
-                  {csvImporting ? "Importing..." : "Import Products"}
+                  {csvImporting ? "Importing..." : `Import ${csvPreview.filter((r) => !r._error).length} Product(s)`}
                 </button>
               </div>
             )}

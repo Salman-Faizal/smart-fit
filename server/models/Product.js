@@ -32,6 +32,22 @@ const productSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    primaryImage: {
+      type: String,
+      default: "",
+    },
+    primaryImagePublicId: {
+      type: String,
+      default: "",
+    },
+    secondaryImages: {
+      type: [String],
+      default: [],
+    },
+    secondaryImagePublicIds: {
+      type: [String],
+      default: [],
+    },
     views: {
       type: Number,
       default: 0,
@@ -62,6 +78,26 @@ const productSchema = new mongoose.Schema(
     sizes: {
       type: [String],
       default: [],
+    },
+    fit: {
+      type: String,
+      enum: ["Slim", "Regular", "Relaxed", "Oversized"],
+      default: null,
+    },
+    style: {
+      type: String,
+      enum: ["Classic", "Streetwear", "Smart Casual", "Minimalist"],
+      default: null,
+    },
+    occasion: {
+      type: String,
+      enum: ["Casual", "Formal", "Night Out", "Active"],
+      default: null,
+    },
+    colorFamily: {
+      type: String,
+      enum: ["Neutrals", "Earth Tones", "Bold & Bright", "Navy & Blues"],
+      default: null,
     },
     status: {
       type: String,

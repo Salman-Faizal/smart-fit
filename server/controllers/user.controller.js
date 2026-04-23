@@ -100,7 +100,8 @@ exports.getWishlist = async (req, res) => {
       .select("wishlist")
       .populate({
         path: "wishlist.product",
-        select: "name price images category stock trendingScore createdAt",
+        select: "name price images category stock trendingScore createdAt status",
+        match: { status: { $ne: "deleted" } },
       });
     if (!user) return res.status(404).json({ message: "User not found" });
 

@@ -2,33 +2,51 @@ const Product = require("../models/Product");
 const Order = require("../models/Order");
 
 // ─── Category Mapping ─────────────────────────────────────────────────────────
-//
-// Maps quiz option labels to the set of category strings actually used in the DB.
-// Exact case-insensitive matches are preferred over substring regex so that
-// "Shirts" does not bleed into "T-Shirts", "Jackets" matches "Blazers", etc.
-// Add more variations here as the product catalogue grows.
 
 const CATEGORY_MAPPINGS = {
-  "T-Shirts":   ["T-Shirts", "T-Shirt", "Tees", "Tee"],
-  "Shirts":     ["Shirts", "Shirt", "Dress Shirts", "Casual Shirts"],
-  "Trousers":   ["Trousers", "Trouser", "Pants", "Pant"],
-  "Chinos":     ["Chinos", "Chino", "Chino Pants", "Pants", "Pant"],
-  "Jackets":    ["Jackets", "Jacket", "Blazers", "Blazer", "Outerwear"],
-  "Shorts":     ["Shorts", "Short"],
-  "Activewear": ["Activewear", "Sportswear", "Athletic", "Gym Wear", "Outerwear"],
-  "Accessories":["Accessories", "Accessory", "Accessoires"],
+  "T-Shirts":    ["T-Shirts", "T-Shirt", "Tees", "Tee"],
+  "Shirts":      ["Shirts", "Shirt", "Dress Shirts", "Casual Shirts"],
+  "Trousers":    ["Trousers", "Trouser", "Pants", "Pant"],
+  "Chinos":      ["Chinos", "Chino", "Chino Pants", "Pants", "Pant"],
+  "Jackets":     ["Jackets", "Jacket", "Blazers", "Blazer", "Outerwear"],
+  "Shorts":      ["Shorts", "Short"],
+  "Activewear":  ["Activewear", "Sportswear", "Athletic", "Gym Wear", "Outerwear"],
+  "Accessories": ["Accessories", "Accessory", "Accessoires"],
 };
 
 // ─── Budget Filters ───────────────────────────────────────────────────────────
 
 const BUDGET_FILTERS = {
-  "Under LKR 2,000":    { $lt: 2000 },
-  "LKR 2,000\u20134,000": { $gte: 2000, $lte: 4000 },
-  "LKR 4,000\u20137,000": { $gt: 4000,  $lte: 7000 },
-  "LKR 7,000+":          { $gt: 7000 },
+  "Under LKR 2,000":         { $lt: 2000 },
+  "LKR 2,000–4,000":    { $gte: 2000, $lte: 4000 },
+  "LKR 4,000–7,000":    { $gt: 4000,  $lte: 7000 },
+  "LKR 7,000+":               { $gt: 7000 },
 };
 
-// ─── Keyword Tables ───────────────────────────────────────────────────────────
+// ─── Quiz answer → schema enum mappings ──────────────────────────────────────
+
+const FIT_SCHEMA_MAP = {
+  "Slim Fit":    "Slim",
+  "Regular Fit": "Regular",
+  "Relaxed Fit": "Relaxed",
+  "Oversized":   "Oversized",
+};
+
+const STYLE_SCHEMA_MAP = {
+  "Classic & Timeless":  "Classic",
+  "Streetwear & Trends": "Streetwear",
+  "Smart Casual":        "Smart Casual",
+  "Minimalist":          "Minimalist",
+};
+
+const OCCASION_SCHEMA_MAP = {
+  "Everyday Casual": "Casual",
+  "Formal & Office": "Formal",
+  "Night Out":       "Night Out",
+  "Active & Sport":  "Active",
+};
+
+// ─── Keyword Tables (fallback when schema field is null) ──────────────────────
 
 const FIT_KEYWORDS = {
   "Slim Fit":    ["slim"],
@@ -38,10 +56,10 @@ const FIT_KEYWORDS = {
 };
 
 const STYLE_KEYWORDS = {
-  "Classic & Timeless":   ["classic"],
-  "Streetwear & Trends":  ["street", "streetwear", "urban"],
-  "Smart Casual":         ["casual", "smart"],
-  "Minimalist":           ["minimal", "minimalist", "clean"],
+  "Classic & Timeless":  ["classic"],
+  "Streetwear & Trends": ["street", "streetwear", "urban"],
+  "Smart Casual":        ["casual", "smart"],
+  "Minimalist":          ["minimal", "minimalist", "clean"],
 };
 
 const OCCASION_KEYWORDS = {
@@ -57,25 +75,16 @@ function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/**
- * Returns $or conditions that match any DB variation for the selected quiz categories.
- * Uses anchored (^...$) case-insensitive regex to avoid substring bleed.
- */
 function buildCategoryConditions(quizCategories) {
   const allVariations = quizCategories.flatMap(
     (cat) => CATEGORY_MAPPINGS[cat] || [cat]
   );
-  // Deduplicate (e.g. Trousers and Chinos both map to "Pants")
   const unique = [...new Set(allVariations)];
   return unique.map((v) => ({
     category: { $regex: `^${escapeRegex(v)}$`, $options: "i" },
   }));
 }
 
-/**
- * Keyword match. Searches name only when description is absent/empty
- * to avoid penalising products without descriptions.
- */
 function hasKeyword(name, description, keywords) {
   const text = description && description.trim()
     ? `${name || ""} ${description}`.toLowerCase()
@@ -85,24 +94,17 @@ function hasKeyword(name, description, keywords) {
 
 function buildStyleSummary(style, fit, colorMood, budget) {
   const budgetShort = (budget || "")
-    .replace("Under LKR 2,000",         "<LKR 2k")
-    .replace("LKR 2,000\u20134,000",    "LKR 2k\u20134k")
-    .replace("LKR 4,000\u20137,000",    "LKR 4k\u20137k")
-    .replace("LKR 7,000+",              "LKR 7k+");
-  return [style, fit, colorMood, budgetShort].filter(Boolean).join(" \u00b7 ");
+    .replace("Under LKR 2,000",      "<LKR 2k")
+    .replace("LKR 2,000–4,000", "LKR 2k–4k")
+    .replace("LKR 4,000–7,000", "LKR 4k–7k")
+    .replace("LKR 7,000+",           "LKR 7k+");
+  return [style, fit, colorMood, budgetShort].filter(Boolean).join(" · ");
 }
 
 const PRODUCT_SELECT =
-  "name description category price stock images createdAt trendingScore";
+  "name description category price stock images primaryImage createdAt trendingScore fit style occasion colorFamily";
 
-// ─── Progressive candidate fetch ──────────────────────────────────────────────
-//
-// Attempt 1: category match + price + stock
-// Attempt 2: price + stock only (category relaxed)
-// Attempt 3: stock + active only (price relaxed)
-// Attempt 4: return anything active + in-stock
-//
-// Returns { candidates, isFallback }
+// ─── Progressive candidate fetch ─────────────────────────────────────────────
 
 async function fetchCandidates({ categoryConditions, priceFilter, excludedIds }) {
   const base = { status: "active", stock: { $gt: 0 } };
@@ -111,30 +113,27 @@ async function fetchCandidates({ categoryConditions, priceFilter, excludedIds })
   const hasCategoryFilter = categoryConditions.length > 0;
   const hasPriceFilter    = Object.keys(priceFilter).length > 0;
 
-  // Attempt 1 — category + price
+  // Attempt 1 — category + price (genuine matches)
   if (hasCategoryFilter) {
     const q = { ...base, $or: categoryConditions };
     if (hasPriceFilter) q.price = priceFilter;
     const results = await Product.find(q).select(PRODUCT_SELECT).lean();
-    if (results.length >= 4) return { candidates: results, isFallback: false };
+    if (results.length >= 4) return { candidates: results, fallbackLevel: 1 };
   }
 
-  // Attempt 2 — price only (drop category)
+  // Attempt 2 — price only, drop category (relaxed category)
   if (hasPriceFilter) {
     const q = { ...base, price: priceFilter };
     const results = await Product.find(q).select(PRODUCT_SELECT).lean();
-    if (results.length >= 4) return { candidates: results, isFallback: true };
+    if (results.length >= 4) return { candidates: results, fallbackLevel: 2 };
   }
 
-  // Attempt 3 — stock + active only (drop both filters)
+  // Attempt 3 — stock + active only, drop both (relaxed price)
   const results3 = await Product.find(base).select(PRODUCT_SELECT).lean();
-  if (results3.length >= 4) return { candidates: results3, isFallback: true };
+  if (results3.length >= 4) return { candidates: results3, fallbackLevel: 3 };
 
-  // Attempt 4 — absolute fallback: whatever is in the DB
-  const results4 = await Product.find({ status: "active" })
-    .select(PRODUCT_SELECT)
-    .lean();
-  return { candidates: results4, isFallback: true };
+  // Attempt 4 — same base, accept any count (including 0)
+  return { candidates: results3, fallbackLevel: 4 };
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -152,7 +151,7 @@ async function getQuizRecommendations({
   const styleSummary = buildStyleSummary(style, fit, colorMood, budget);
 
   if (cats.length === 0) {
-    return { products: [], styleSummary, totalFound: 0, isFallback: false };
+    return { products: [], styleSummary, totalFound: 0, fallbackLevel: 0, isFallback: false };
   }
 
   // Exclude already-purchased products
@@ -170,33 +169,35 @@ async function getQuizRecommendations({
   const categoryConditions = buildCategoryConditions(cats);
   const priceFilter        = BUDGET_FILTERS[budget] || {};
 
-  const { candidates, isFallback } = await fetchCandidates({
+  const { candidates, fallbackLevel } = await fetchCandidates({
     categoryConditions,
     priceFilter,
     excludedIds,
   });
 
   if (candidates.length === 0) {
-    return { products: [], styleSummary, totalFound: 0, isFallback: true };
+    return { products: [], styleSummary, totalFound: 0, fallbackLevel, isFallback: true };
   }
 
-  const totalFound = candidates.length;
-
-  // Determine if trending data is meaningful (skip component if all zero)
+  const totalFound  = candidates.length;
   const maxTrending = Math.max(...candidates.map((p) => p.trendingScore || 0));
   const hasTrendingData = maxTrending > 0;
 
   const now = Date.now();
   const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
-  const fitKeywords      = FIT_KEYWORDS[fit]           || [];
-  const styleKeywords    = STYLE_KEYWORDS[style]        || [];
-  const occasionKeywords = OCCASION_KEYWORDS[occasion]  || [];
+  const fitSchemaValue    = FIT_SCHEMA_MAP[fit]      || null;
+  const styleSchemaValue  = STYLE_SCHEMA_MAP[style]  || null;
+  const occasionSchemaVal = OCCASION_SCHEMA_MAP[occasion] || null;
 
-  // Score each candidate
+  const fitKeywords      = FIT_KEYWORDS[fit]          || [];
+  const styleKeywords    = STYLE_KEYWORDS[style]       || [];
+  const occasionKeywords = OCCASION_KEYWORDS[occasion] || [];
+
   const scored = candidates.map((product) => {
     const { name, description, category, trendingScore, createdAt } = product;
     let score = 0;
+    const matchSignals = [];
 
     // Category match: +30
     const catMatches = categoryConditions.some((cond) =>
@@ -204,49 +205,67 @@ async function getQuizRecommendations({
     );
     if (catMatches) score += 30;
 
-    // Price in range: +25 (all non-fallback candidates already pass price filter,
-    // check explicitly for fallback candidates)
-    const priceOk =
-      !hasPriceFilter(priceFilter) || productInPriceRange(product.price, priceFilter);
+    // Price in range: +25
+    const priceOk = !hasPriceFilter(priceFilter) || productInPriceRange(product.price, priceFilter);
     if (priceOk) score += 25;
 
-    // Trending: +0–20 (only when data exists)
+    // Trending: +0–20
     let trendPoints = 0;
     if (hasTrendingData) {
       trendPoints = ((trendingScore || 0) / maxTrending) * 20;
       score += trendPoints;
     }
 
-    // New arrival (< 14 days): +10
-    const isNew =
-      createdAt && now - new Date(createdAt).getTime() < FOURTEEN_DAYS_MS;
+    // New arrival < 14 days: +10
+    const isNew = createdAt && now - new Date(createdAt).getTime() < FOURTEEN_DAYS_MS;
     if (isNew) score += 10;
 
-    // Fit keyword: +10
-    const fitMatch =
-      fitKeywords.length > 0 && hasKeyword(name, description, fitKeywords);
-    if (fitMatch) score += 10;
+    // Fit: schema field (+20) else keyword fallback (+10)
+    let fitMatch = false;
+    if (fitSchemaValue && product.fit) {
+      if (product.fit === fitSchemaValue) { score += 20; matchSignals.push("fit-schema"); fitMatch = true; }
+    } else if (fitKeywords.length > 0 && hasKeyword(name, description, fitKeywords)) {
+      score += 10; matchSignals.push("fit-keyword"); fitMatch = true;
+    }
 
-    // Style keyword: +5
-    const styleMatch =
-      styleKeywords.length > 0 && hasKeyword(name, description, styleKeywords);
-    if (styleMatch) score += 5;
+    // Style: schema field (+15) else keyword fallback (+5)
+    let styleMatch = false;
+    if (styleSchemaValue && product.style) {
+      if (product.style === styleSchemaValue) { score += 15; matchSignals.push("style-schema"); styleMatch = true; }
+    } else if (styleKeywords.length > 0 && hasKeyword(name, description, styleKeywords)) {
+      score += 5; matchSignals.push("style-keyword"); styleMatch = true;
+    }
 
-    // Occasion keyword: +5
-    const occMatch =
-      occasionKeywords.length > 0 && hasKeyword(name, description, occasionKeywords);
-    if (occMatch) score += 5;
+    // Occasion: schema field (+15) else keyword fallback (+5)
+    if (occasionSchemaVal && product.occasion) {
+      if (product.occasion === occasionSchemaVal) { score += 15; matchSignals.push("occasion-schema"); }
+    } else if (occasionKeywords.length > 0 && hasKeyword(name, description, occasionKeywords)) {
+      score += 5; matchSignals.push("occasion-keyword");
+    }
 
-    // Reason — most specific matching signal wins
+    // Color family: schema field (+10)
+    if (colorMood && product.colorFamily && product.colorFamily === colorMood) {
+      score += 10; matchSignals.push("color-schema");
+    }
+
+    // Build reason string (most specific match wins)
     let reason;
-    if (fitMatch) {
-      reason = `Matches your ${fit.toLowerCase()} preference`;
+    if (matchSignals.includes("fit-schema")) {
+      reason = `Matched your ${fitSchemaValue} fit preference`;
+    } else if (matchSignals.includes("style-schema")) {
+      reason = `Matches your ${styleSchemaValue} style`;
+    } else if (matchSignals.includes("occasion-schema")) {
+      reason = `Great for ${occasionSchemaVal.toLowerCase()} occasions`;
+    } else if (matchSignals.includes("color-schema")) {
+      reason = `In your preferred ${colorMood} palette`;
+    } else if (fitMatch) {
+      reason = `Matches your ${(fit || "").toLowerCase()} preference`;
     } else if (styleMatch) {
-      reason = `Matches your ${style.toLowerCase()} preference`;
+      reason = `Matches your ${(style || "").toLowerCase()} vibe`;
     } else if (hasTrendingData && trendPoints >= 10) {
       reason = "Trending in your budget range";
     } else if (isNew) {
-      reason = "Just arrived \u2014 fresh pick for you";
+      reason = "Just arrived — fresh pick for you";
     } else if (catMatches) {
       reason = `Perfect for your ${category} search`;
     } else {
@@ -263,7 +282,13 @@ async function getQuizRecommendations({
     reason,
   }));
 
-  return { products, styleSummary, totalFound, isFallback };
+  return {
+    products,
+    styleSummary,
+    totalFound,
+    fallbackLevel,
+    isFallback: fallbackLevel >= 3,
+  };
 }
 
 // ─── Internal price helpers ───────────────────────────────────────────────────

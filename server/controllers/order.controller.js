@@ -1,4 +1,10 @@
 const orderService = require("../services/order.service");
+const User = require("../models/User");
+const {
+  sendEmail,
+  orderRejectionEmail,
+  orderCancellationEmail,
+} = require("../services/email.service");
 
 const handleError = (res, error) => {
   const statusCode = error.statusCode || 500;
@@ -124,7 +130,29 @@ exports.updateOrderStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body || {};
 
+    // Capture previous state before update for email logic
+    const Order = require("../models/Order");
+    const prevOrder = await Order.findById(id).select("status paymentMethod paymentStatus user");
+
     const order = await orderService.updateOrderStatus(id, status);
+
+    // Bank payment rejection: MANUAL order cancelled while still PENDING (never paid)
+    if (
+      status === "CANCELLED" &&
+      prevOrder?.paymentMethod === "MANUAL" &&
+      prevOrder?.paymentStatus !== "PAID"
+    ) {
+      const userDoc = order.user;
+      const userName = userDoc?.name || "Customer";
+      const userEmail = userDoc?.email;
+      if (userEmail) {
+        sendEmail(
+          userEmail,
+          `Update on your Smart Fit order #${String(order._id).slice(-8).toUpperCase()}`,
+          orderRejectionEmail(userName, order),
+        ).catch(() => {});
+      }
+    }
 
     return res.status(200).json({
       message: "Order status updated",
@@ -135,11 +163,30 @@ exports.updateOrderStatus = async (req, res) => {
   }
 };
 
-
 exports.markOrderPaid = async (req, res) => {
   try {
     const order = await orderService.markOrderPaid(req.user.id, req.params.orderId);
     return res.status(200).json({ message: "Order marked as paid", order });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+exports.cancelOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await orderService.cancelOrder(req.user.id, orderId);
+
+    const user = await User.findById(req.user.id).select("name email");
+    if (user) {
+      sendEmail(
+        user.email,
+        `Your order #${String(order._id).slice(-8).toUpperCase()} has been cancelled`,
+        orderCancellationEmail(user.name, order),
+      ).catch(() => {});
+    }
+
+    return res.status(200).json({ message: "Order cancelled", order });
   } catch (error) {
     return handleError(res, error);
   }

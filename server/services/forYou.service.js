@@ -389,6 +389,7 @@ async function getTopPicksForUser({ userId, excludeIds = [] } = {}) {
 
   const candidateQuery = {
     stock: { $gt: 0 },
+    status: { $ne: "deleted" },
     category: { $in: topCategoryNames },
   };
   if (hardExcludeIds.length) {
@@ -406,7 +407,7 @@ async function getTopPicksForUser({ userId, excludeIds = [] } = {}) {
   // to all in-stock products (keeping the exclude list)
   let finalCandidates = candidates;
   if (candidates.length < RESULT_LIMIT) {
-    const broadQuery = { stock: { $gt: 0 } };
+    const broadQuery = { stock: { $gt: 0 }, status: { $ne: "deleted" } };
     if (hardExcludeIds.length) {
       broadQuery._id = { $nin: hardExcludeIds };
     }

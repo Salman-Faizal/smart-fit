@@ -728,8 +728,8 @@ function TopProductsCard() {
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700">
                   {i + 1}
                 </span>
-                {p.images?.[0] ? (
-                  <img src={p.images[0] || "https://placehold.co/400x500?text=No+Image"} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
+                {(p.primaryImage || p.images?.[0]) ? (
+                  <img src={p.primaryImage || p.images[0] || "https://placehold.co/400x500?text=No+Image"} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
                 ) : (
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-300">
                     <Package className="h-4 w-4" />
@@ -806,8 +806,8 @@ function LowStockCard() {
                 onClick={() => navigate(`/admin/products/edit/${p._id}`)}
                 className="flex cursor-pointer items-center gap-2.5 rounded-xl p-1.5 transition hover:bg-slate-50"
               >
-                {p.images?.[0] ? (
-                  <img src={p.images[0] || "https://placehold.co/400x500?text=No+Image"} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
+                {(p.primaryImage || p.images?.[0]) ? (
+                  <img src={p.primaryImage || p.images[0] || "https://placehold.co/400x500?text=No+Image"} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
                 ) : (
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-300">
                     <Package className="h-4 w-4" />

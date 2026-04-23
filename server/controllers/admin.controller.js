@@ -2,6 +2,7 @@ const adminService = require("../services/admin.service");
 const { updateTrendingScores } = require("../services/trending.service");
 const { destroyCloudinaryAsset } = require("../utils/cloudinaryAsset");
 const User = require("../models/User");
+const { sendEmail, orderConfirmationEmail, orderRejectionEmail } = require("../services/email.service");
 
 const handleError = (res, error) => {
   const status = error.statusCode || 500;
@@ -75,8 +76,8 @@ exports.updateOrderStatus = async (req, res) => {
 
 exports.getPendingBankOrders = async (req, res) => {
   try {
-    const { page, limit } = req.query;
-    const result = await adminService.getPendingBankOrders({ page, limit: Math.min(Number(limit) || 20, 100) });
+    const { page, limit, search } = req.query;
+    const result = await adminService.getPendingBankOrders({ page, limit: Math.min(Number(limit) || 20, 100), search });
     return res.status(200).json(result);
   } catch (error) {
     return handleError(res, error);
@@ -86,6 +87,18 @@ exports.getPendingBankOrders = async (req, res) => {
 exports.approveBankPayment = async (req, res) => {
   try {
     const order = await adminService.approveBankPayment(req.params.id);
+
+    const userDoc = order.user;
+    const userEmail = userDoc?.email;
+    const userName = userDoc?.name || "Customer";
+    if (userEmail) {
+      sendEmail(
+        userEmail,
+        `Order Confirmed — #${String(order._id).slice(-8).toUpperCase()} 🎉`,
+        orderConfirmationEmail(userName, order),
+      ).catch(() => {});
+    }
+
     return res.status(200).json({ message: "Payment approved", order });
   } catch (error) {
     return handleError(res, error);
@@ -95,6 +108,16 @@ exports.approveBankPayment = async (req, res) => {
 exports.rejectBankPayment = async (req, res) => {
   try {
     const order = await adminService.rejectBankPayment(req.params.id);
+
+    const user = await User.findById(order.user).select("name email");
+    if (user) {
+      sendEmail(
+        user.email,
+        `Update on your Smart Fit order #${String(order._id).slice(-8).toUpperCase()}`,
+        orderRejectionEmail(user.name, order),
+      ).catch(() => {});
+    }
+
     return res.status(200).json({ message: "Payment rejected", order });
   } catch (error) {
     return handleError(res, error);

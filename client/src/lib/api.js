@@ -65,10 +65,25 @@ const request = async (path, options = {}) => {
 };
 
 export const api = {
+  register: (payload) =>
+    request("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   login: (payload) =>
     request("/auth/login", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  verifyOtp: (email, otp) =>
+    request("/auth/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ email, otp }),
+    }),
+  resendOtp: (email) =>
+    request("/auth/resend-otp", {
+      method: "POST",
+      body: JSON.stringify({ email }),
     }),
   getProfile: () => request("/users/profile"),
   uploadAvatar: (formData) =>
@@ -123,6 +138,8 @@ export const api = {
   getOrderById: (orderId) => request(`/orders/${orderId}`),
   markOrderPaid: (orderId) =>
     request(`/orders/${orderId}/mark-paid`, { method: "PATCH" }),
+  cancelOrder: (orderId) =>
+    request(`/orders/${orderId}/cancel`, { method: "PATCH" }),
   createStripeCheckoutSession: (orderId) =>
     request(`/payments/orders/${orderId}/stripe-checkout-session`, {
       method: "POST",

@@ -12,6 +12,7 @@ import {
   Line,
   CartesianGrid,
   Legend,
+  ReferenceLine,
 } from "recharts";
 import {
   RefreshCw,
@@ -199,26 +200,33 @@ function RunwayChart({ products }) {
   );
 }
 
-// ─── Sales Trend Chart ────────────────────────────────────────────────────────
+// ─── Performance Forecast Chart ───────────────────────────────────────────────
 
-const TrendTooltip = ({ active, payload, label }) => {
+const ForecastTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
+  const visible = payload.filter((p) => p.value !== null && p.value !== undefined);
+  if (!visible.length) return null;
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg text-xs max-w-[200px]">
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg text-xs max-w-[220px]">
       <p className="font-semibold text-slate-700 mb-1.5">{label}</p>
-      {payload.map((p) => (
-        <p key={p.name} style={{ color: p.color }} className="leading-snug">
-          {p.name}: <span className="font-semibold">{p.value} units</span>
-        </p>
-      ))}
+      {visible.map((p) => {
+        const isForecast = p.dataKey.endsWith("__fc");
+        const productName = isForecast ? p.dataKey.slice(0, -4) : p.dataKey;
+        return (
+          <p key={p.dataKey} style={{ color: p.color }} className="leading-snug">
+            {productName}
+            <span className="ml-1 text-slate-400">{isForecast ? "(projected)" : "(actual)"}</span>
+            {": "}
+            <span className="font-semibold">{p.value} units</span>
+          </p>
+        );
+      })}
     </div>
   );
 };
 
-function SalesTrendChart({ trendData, loading }) {
-  if (loading) {
-    return <Sk h="h-72" />;
-  }
+function ForecastChart({ trendData, loading }) {
+  if (loading) return <Sk h="h-72" />;
 
   if (!trendData || !trendData.series?.length) {
     return (
@@ -228,47 +236,87 @@ function SalesTrendChart({ trendData, loading }) {
     );
   }
 
-  // Build recharts data: array of { day: "Apr 1", "Product A": 3, ... }
-  const chartData = trendData.days.map((day, i) => {
-    const point = { day };
-    trendData.series.forEach((s) => {
-      point[s.name] = s.data[i] ?? 0;
+  const { dates, series } = trendData;
+
+  // Build flat chart data: each date is one row
+  // Actual keys: product name; Forecast keys: product name + "__fc"
+  const chartData = dates.map((date, i) => {
+    const point = { date };
+    series.forEach((s) => {
+      point[s.name] = s.actual[i] ?? null;
+      point[`${s.name}__fc`] = s.forecast[i] ?? null;
     });
     return point;
   });
 
-  // Show every 5th label to avoid clutter
-  const tickFormatter = (val, idx) => (idx % 5 === 0 ? val : "");
+  // Today is index 29 (last historical day)
+  const todayLabel = dates[29] || "";
+  const tickFormatter = (val, idx) => (idx % 7 === 0 ? val : "");
 
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+      <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
         <XAxis
-          dataKey="day"
+          dataKey="date"
           tick={{ fontSize: 10, fill: "#94a3b8" }}
           axisLine={false}
           tickLine={false}
           tickFormatter={tickFormatter}
         />
-        <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-        <Tooltip content={<TrendTooltip />} />
-        <Legend
-          wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
-          iconType="circle"
-          iconSize={8}
+        <YAxis
+          tick={{ fontSize: 11, fill: "#94a3b8" }}
+          axisLine={false}
+          tickLine={false}
+          allowDecimals={false}
         />
-        {trendData.series.map((s, i) => (
-          <Line
-            key={s.name}
-            type="monotone"
-            dataKey={s.name}
-            stroke={LINE_COLORS[i % LINE_COLORS.length]}
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 4 }}
-          />
-        ))}
+        <Tooltip content={<ForecastTooltip />} />
+        <Legend
+          wrapperStyle={{ fontSize: 10, paddingTop: 8 }}
+          iconType="circle"
+          iconSize={7}
+          formatter={(value) => value.endsWith("__fc") ? null : value}
+          payload={series.map((s, i) => ({
+            value: s.name,
+            type: "circle",
+            color: LINE_COLORS[i % LINE_COLORS.length],
+          }))}
+        />
+        {/* Today reference line */}
+        <ReferenceLine
+          x={todayLabel}
+          stroke="#cbd5e1"
+          strokeDasharray="4 3"
+          label={{ value: "Today", position: "insideTopRight", fontSize: 9, fill: "#94a3b8" }}
+        />
+        {series.map((s, i) => {
+          const color = LINE_COLORS[i % LINE_COLORS.length];
+          return [
+            <Line
+              key={`${s.name}-actual`}
+              type="monotone"
+              dataKey={s.name}
+              stroke={color}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 3 }}
+              connectNulls={false}
+              legendType="none"
+            />,
+            <Line
+              key={`${s.name}-forecast`}
+              type="monotone"
+              dataKey={`${s.name}__fc`}
+              stroke={color}
+              strokeWidth={1.5}
+              strokeDasharray="5 3"
+              dot={false}
+              activeDot={{ r: 3 }}
+              connectNulls={false}
+              legendType="none"
+            />,
+          ];
+        })}
       </LineChart>
     </ResponsiveContainer>
   );
@@ -580,13 +628,15 @@ export default function AdminForecastPage() {
           </div>
         </div>
 
-        {/* Sales trend chart */}
+        {/* Forecast chart */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-1 text-sm font-bold text-slate-800">
-            Sales Velocity — Last 30 Days
+            Sales Performance &amp; 14-Day Forecast
           </h2>
-          <p className="mb-4 text-xs text-slate-400">Top 5 best-selling products</p>
-          <SalesTrendChart trendData={trendData} loading={trendLoading} />
+          <p className="mb-4 text-xs text-slate-400">
+            Top 5 products — solid lines: actual · dashed: projected
+          </p>
+          <ForecastChart trendData={trendData} loading={trendLoading} />
         </div>
       </div>
 

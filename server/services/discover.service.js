@@ -199,6 +199,7 @@ async function getDiscoverFeed({
   // ── All available categories → derive novel (never-seen) categories ────────
   const allCategories = await Product.distinct("category", {
     stock: { $gt: 0 },
+    status: { $ne: "deleted" },
   });
   const novelCategories = allCategories.filter((c) => !userCategorySet.has(c));
 
@@ -213,13 +214,14 @@ async function getDiscoverFeed({
       ? Product.find({
           ...excludeMongoFilter,
           stock: { $gt: 0 },
+          status: { $ne: "deleted" },
           category: { $in: [...userCategorySet] },
         })
           .select(DISCOVER_SELECT)
           .sort({ trendingScore: -1, views: -1 })
           .limit(fetchLimit)
           .lean()
-      : Product.find({ ...excludeMongoFilter, stock: { $gt: 0 } })
+      : Product.find({ ...excludeMongoFilter, stock: { $gt: 0 }, status: { $ne: "deleted" } })
           .select(DISCOVER_SELECT)
           .sort({ trendingScore: -1 })
           .limit(fetchLimit)
@@ -230,20 +232,21 @@ async function getDiscoverFeed({
       ? Product.find({
           ...excludeMongoFilter,
           stock: { $gt: 0 },
+          status: { $ne: "deleted" },
           category: { $in: novelCategories },
         })
           .select(DISCOVER_SELECT)
           .sort({ createdAt: -1 })
           .limit(fetchLimit)
           .lean()
-      : Product.find({ ...excludeMongoFilter, stock: { $gt: 0 } })
+      : Product.find({ ...excludeMongoFilter, stock: { $gt: 0 }, status: { $ne: "deleted" } })
           .select(DISCOVER_SELECT)
           .sort({ createdAt: -1 })
           .limit(fetchLimit)
           .lean(),
 
     // Pool C — Trending (highest trendingScore not excluded)
-    Product.find({ ...excludeMongoFilter, stock: { $gt: 0 } })
+    Product.find({ ...excludeMongoFilter, stock: { $gt: 0 }, status: { $ne: "deleted" } })
       .select(DISCOVER_SELECT)
       .sort({ trendingScore: -1, purchases: -1, views: -1 })
       .limit(fetchLimit)
@@ -253,6 +256,7 @@ async function getDiscoverFeed({
     Product.find({
       ...excludeMongoFilter,
       stock: { $gt: 0 },
+      status: { $ne: "deleted" },
       createdAt: { $gte: thirtyDaysAgo },
     })
       .select(DISCOVER_SELECT)

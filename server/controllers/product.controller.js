@@ -1,7 +1,7 @@
 const Product = require("../models/Product");
 const User = require("../models/User");
 const { prependUniqueWithLimit } = require("../services/userTracking.service");
-const { destroyCloudinaryAssets } = require("../utils/cloudinaryAsset");
+const { destroyCloudinaryAsset, destroyCloudinaryAssets } = require("../utils/cloudinaryAsset");
 
 const mapUploadedFiles = (files = []) => {
   return files.map((file) => ({
@@ -9,6 +9,20 @@ const mapUploadedFiles = (files = []) => {
     publicId: file.filename || file.public_id,
   }));
 };
+
+const FIT_ENUM = ["Slim", "Regular", "Relaxed", "Oversized"];
+const STYLE_ENUM = ["Classic", "Streetwear", "Smart Casual", "Minimalist"];
+const OCCASION_ENUM = ["Casual", "Formal", "Night Out", "Active"];
+const COLOR_FAMILY_ENUM = ["Neutrals", "Earth Tones", "Bold & Bright", "Navy & Blues"];
+
+function pickStyleAttrs(body) {
+  const attrs = {};
+  if (body.fit !== undefined) attrs.fit = FIT_ENUM.includes(body.fit) ? body.fit : null;
+  if (body.style !== undefined) attrs.style = STYLE_ENUM.includes(body.style) ? body.style : null;
+  if (body.occasion !== undefined) attrs.occasion = OCCASION_ENUM.includes(body.occasion) ? body.occasion : null;
+  if (body.colorFamily !== undefined) attrs.colorFamily = COLOR_FAMILY_ENUM.includes(body.colorFamily) ? body.colorFamily : null;
+  return attrs;
+}
 
 exports.createProduct = async (req, res) => {
   try {
@@ -20,7 +34,10 @@ exports.createProduct = async (req, res) => {
       });
     }
 
-    const uploadedImages = mapUploadedFiles(req.files || []);
+    const primaryFiles = req.files?.primaryImage || [];
+    const secondaryFiles = req.files?.secondaryImages || [];
+    const primaryData = mapUploadedFiles(primaryFiles)[0] || null;
+    const secondaryData = mapUploadedFiles(secondaryFiles);
 
     const product = await Product.create({
       name,
@@ -28,8 +45,13 @@ exports.createProduct = async (req, res) => {
       category,
       price: Number(price),
       stock: Number(stock),
-      images: uploadedImages.map((image) => image.url),
-      imagePublicIds: uploadedImages.map((image) => image.publicId),
+      primaryImage: primaryData?.url || "",
+      primaryImagePublicId: primaryData?.publicId || "",
+      secondaryImages: secondaryData.map((i) => i.url),
+      secondaryImagePublicIds: secondaryData.map((i) => i.publicId),
+      images: [primaryData?.url, ...secondaryData.map((i) => i.url)].filter(Boolean),
+      imagePublicIds: [primaryData?.publicId, ...secondaryData.map((i) => i.publicId)].filter(Boolean),
+      ...pickStyleAttrs(req.body || {}),
     });
 
     return res.status(201).json(product);
@@ -187,19 +209,68 @@ exports.updateProduct = async (req, res) => {
     if (price !== undefined) updates.price = Number(price);
     if (stock !== undefined) updates.stock = Number(stock);
 
-    if (
-      Object.keys(updates).length === 0 &&
-      (!req.files || req.files.length === 0)
-    ) {
+    Object.assign(updates, pickStyleAttrs(req.body || {}));
+
+    const hasPrimaryUpload = !!(req.files?.primaryImage?.length);
+    const hasSecondaryUpload = !!(req.files?.secondaryImages?.length);
+    const clearingPrimary = req.body.clearPrimaryImage === "true";
+    const hasKeepList = req.body.keepSecondaryImages !== undefined;
+    const hasImageChanges = hasPrimaryUpload || hasSecondaryUpload || clearingPrimary || hasKeepList;
+
+    const hasBodyChanges = Object.keys(updates).length > 0;
+    if (!hasBodyChanges && !hasImageChanges) {
       return res.status(400).json({ message: "No fields provided for update" });
     }
 
-    if (req.files && req.files.length > 0) {
-      const uploadedImages = mapUploadedFiles(req.files);
-      updates.images = uploadedImages.map((image) => image.url);
-      updates.imagePublicIds = uploadedImages.map((image) => image.publicId);
+    if (hasImageChanges) {
+      // ── Primary image ──────────────────────────────────────────────────────
+      let curPrimary = product.primaryImage || product.images?.[0] || "";
+      let curPrimaryPublicId = product.primaryImagePublicId || product.imagePublicIds?.[0] || "";
 
-      await destroyCloudinaryAssets(product.imagePublicIds || []);
+      if (clearingPrimary && curPrimary) {
+        await destroyCloudinaryAsset(curPrimaryPublicId).catch(() => {});
+        curPrimary = "";
+        curPrimaryPublicId = "";
+      }
+      if (hasPrimaryUpload) {
+        if (curPrimaryPublicId) await destroyCloudinaryAsset(curPrimaryPublicId).catch(() => {});
+        const f = mapUploadedFiles(req.files.primaryImage)[0];
+        curPrimary = f.url;
+        curPrimaryPublicId = f.publicId;
+      }
+      updates.primaryImage = curPrimary;
+      updates.primaryImagePublicId = curPrimaryPublicId;
+
+      // ── Secondary images ───────────────────────────────────────────────────
+      const existingSecondary = product.secondaryImages?.length
+        ? product.secondaryImages
+        : (product.images?.slice(1) || []);
+      const existingSecondaryPublicIds = product.secondaryImagePublicIds?.length
+        ? product.secondaryImagePublicIds
+        : (product.imagePublicIds?.slice(1) || []);
+
+      const keepUrls = hasKeepList
+        ? JSON.parse(req.body.keepSecondaryImages || "[]")
+        : existingSecondary;
+
+      const removedPublicIds = existingSecondary
+        .map((url, idx) => (keepUrls.includes(url) ? null : existingSecondaryPublicIds[idx]))
+        .filter(Boolean);
+      await destroyCloudinaryAssets(removedPublicIds).catch(() => {});
+
+      const keptPublicIds = keepUrls.map((url) => {
+        const idx = existingSecondary.indexOf(url);
+        return idx >= 0 ? existingSecondaryPublicIds[idx] : "";
+      });
+
+      const newSecondaryData = hasSecondaryUpload ? mapUploadedFiles(req.files.secondaryImages) : [];
+
+      updates.secondaryImages = [...keepUrls, ...newSecondaryData.map((i) => i.url)];
+      updates.secondaryImagePublicIds = [...keptPublicIds, ...newSecondaryData.map((i) => i.publicId)];
+
+      // Keep images[] in sync
+      updates.images = [updates.primaryImage, ...updates.secondaryImages].filter(Boolean);
+      updates.imagePublicIds = [updates.primaryImagePublicId, ...updates.secondaryImagePublicIds].filter(Boolean);
     }
 
     Object.assign(product, updates);

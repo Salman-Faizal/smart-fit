@@ -64,7 +64,7 @@ function ProductListRow({ product, isNewArrival }) {
     <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-3 transition hover:bg-slate-50">
       <Link to={`/products/${productId}`} className="flex-shrink-0">
         <img
-          src={assetUrl(product.images?.[0]) || PLACEHOLDER}
+          src={assetUrl(product.primaryImage || product.images?.[0]) || PLACEHOLDER}
           alt={product.name}
           className="h-[100px] w-[100px] rounded-xl object-cover"
           onError={(e) => { e.target.onerror = null; e.target.src = PLACEHOLDER; }}

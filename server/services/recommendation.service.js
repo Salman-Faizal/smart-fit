@@ -246,7 +246,7 @@ const getTrendingRecommendations = async ({
   const normalizedLimit = normalizeLimit(limit);
   const excludedIds = parseExcludeIds(excludeIds);
 
-  const baseQuery = { stock: { $gt: 0 } };
+  const baseQuery = { stock: { $gt: 0 }, status: { $ne: "deleted" } };
   const exclusionSet = [...excludedIds];
 
   if (excludeProductId && mongoose.Types.ObjectId.isValid(excludeProductId)) {
@@ -314,7 +314,7 @@ const getForYouRecommendations = async ({
   const hasPersonalSignals =
     userContext.recentViewedSet.size > 0 || userContext.purchasedSet.size > 0;
 
-  const baseQuery = { stock: { $gt: 0 } };
+  const baseQuery = { stock: { $gt: 0 }, status: { $ne: "deleted" } };
   const excludedIds = parseExcludeIds(excludeIds);
 
   if (excludedIds.length) {
@@ -382,7 +382,7 @@ const getDiscoverRecommendations = async ({
   const normalizedLimit = normalizeLimit(limit);
   const excludedIds = parseExcludeIds(excludeIds);
 
-  const baseQuery = { stock: { $gt: 0 } };
+  const baseQuery = { stock: { $gt: 0 }, status: { $ne: "deleted" } };
   if (excludedIds.length) {
     baseQuery._id = { $nin: excludedIds };
   }
@@ -565,7 +565,7 @@ const assignRankBadges = (products) =>
 const getTrendingProductsWithRanks = async ({ limit = 20 } = {}) => {
   const normalizedLimit = Math.min(Math.max(1, Number(limit) || 20), 20);
 
-  const products = await Product.find({ stock: { $gt: 0 } })
+  const products = await Product.find({ stock: { $gt: 0 }, status: { $ne: "deleted" } })
     .select(RECOMMENDATION_SELECT)
     .sort({ trendingScore: -1, views: -1, purchases: -1 })
     .limit(normalizedLimit);

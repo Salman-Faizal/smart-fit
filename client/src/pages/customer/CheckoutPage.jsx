@@ -163,7 +163,7 @@ function UpsellCard({ product, onAdd, adding, added }) {
     <article className="flex w-40 flex-shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md sm:w-44">
       <Link to={`/products/${product._id}`} className="block flex-shrink-0">
         <img
-          src={assetUrl(product.images?.[0]) || "https://placehold.co/400x500?text=No+Image"}
+          src={assetUrl(product.primaryImage || product.images?.[0]) || "https://placehold.co/400x500?text=No+Image"}
           alt={product.name}
           className="h-32 w-full object-cover sm:h-36"
           onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
@@ -575,6 +575,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [stripeRedirecting, setStripeRedirecting] = useState(false);
   const [error, setError] = useState("");
+  const [cartToast, setCartToast] = useState("");
 
   // Manual payment flow state
   const [manualOrderId, setManualOrderId] = useState("");
@@ -602,7 +603,19 @@ export default function CheckoutPage() {
     try {
       setError("");
       const cartData = await api.getCart();
-      setCart(cartData.cart);
+      const items = cartData.cart?.items || [];
+      const deletedItems = items.filter(
+        (item) => !item.product || item.product.status === "deleted",
+      );
+      if (deletedItems.length > 0) {
+        await Promise.all(deletedItems.map((item) => api.removeCartItem(item._id)));
+        setCartToast("One item was removed as it's no longer available");
+        setTimeout(() => setCartToast(""), 4000);
+        const refreshed = await api.getCart();
+        setCart(refreshed.cart);
+      } else {
+        setCart(cartData.cart);
+      }
     } catch (err) {
       setError(err.message || "Failed to load cart");
       setCart({ items: [] });
@@ -1155,13 +1168,13 @@ export default function CheckoutPage() {
 
       {/* ── "Before You Go" Upsell — shows even when cart is empty ──────── */}
       {upsellProducts.length > 0 && (
-        <div className="space-y-4 mt-10">
+        <div className="space-y-4 mt-4">
           <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-slate-100" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-              Before You Go
+            <div className="h-0.5 flex-1 bg-amber-400" />
+            <span className="text-sm font-bold text-slate-700">
+              Before You Go 👀
             </span>
-            <div className="h-px flex-1 bg-slate-100" />
+            <div className="h-0.5 flex-1 bg-amber-400" />
           </div>
 
           <div>
@@ -1183,6 +1196,13 @@ export default function CheckoutPage() {
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {cartToast && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white shadow-lg">
+          {cartToast}
+          <button type="button" onClick={() => setCartToast("")} className="ml-1 opacity-70 hover:opacity-100">✕</button>
         </div>
       )}
     </section>

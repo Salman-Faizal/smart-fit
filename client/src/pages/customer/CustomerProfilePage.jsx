@@ -203,7 +203,63 @@ function OrderItemsList({ items }) {
   );
 }
 
-function MyOrders({ orders }) {
+const CANCELLABLE_STATUSES = ["PENDING_PAYMENT", "PAID"];
+
+function CancelOrderButton({ orderId, onCancelled }) {
+  const [confirming, setConfirming] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    setErr("");
+    try {
+      await api.cancelOrder(orderId);
+      onCancelled();
+    } catch (e) {
+      setErr(e.message || "Failed to cancel order.");
+      setLoading(false);
+    }
+  };
+
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        className="text-xs text-red-500 hover:text-red-700 hover:underline font-medium shrink-0"
+      >
+        Cancel Order
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1 shrink-0">
+      {err && <p className="text-[11px] text-red-500">{err}</p>}
+      <p className="text-[11px] text-slate-500 text-right">Are you sure? This cannot be undone.</p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={loading}
+          className="rounded-lg bg-red-500 px-3 py-1 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-60"
+        >
+          {loading ? "…" : "Yes"}
+        </button>
+        <button
+          type="button"
+          onClick={() => { setConfirming(false); setErr(""); }}
+          className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+        >
+          No
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MyOrders({ orders, onRefresh }) {
   const [expanded, setExpanded] = useState(null);
   const [visibleCount, setVisibleCount] = useState(ORDERS_PAGE_SIZE);
   const realOrders = orders.filter((o) => o.status !== "CART");
@@ -243,8 +299,15 @@ function MyOrders({ orders }) {
             <ChevronDownIcon open={expanded === order._id} />
           </button>
 
-          {expanded === order._id && order.items?.length > 0 && (
-            <OrderItemsList items={order.items} />
+          {expanded === order._id && (
+            <div>
+              {order.items?.length > 0 && <OrderItemsList items={order.items} />}
+              {CANCELLABLE_STATUSES.includes(order.status) && (
+                <div className="flex justify-end px-4 pb-4">
+                  <CancelOrderButton orderId={order._id} onCancelled={onRefresh} />
+                </div>
+              )}
+            </div>
           )}
         </div>
       ))}
@@ -738,12 +801,14 @@ export default function CustomerProfilePage() {
     return assetUrl(user?.avatar?.url);
   }, [avatarFile, user?.avatar?.url]);
 
-  useEffect(() => {
+  const loadOrders = () => {
     api.getMyOrders()
       .then((data) => setOrders(data.orders || []))
       .catch(() => setOrders([]))
       .finally(() => setOrdersLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadOrders(); }, []);
 
   // Sync tab from URL
   useEffect(() => {
@@ -848,7 +913,7 @@ export default function CustomerProfilePage() {
           ) : activeTab === "overview" ? (
             <Overview user={user} orders={orders} wishlistIds={wishlistIds} onTabChange={handleTabChange} />
           ) : activeTab === "orders" ? (
-            <MyOrders orders={orders} />
+            <MyOrders orders={orders} onRefresh={loadOrders} />
           ) : activeTab === "wishlist" ? (
             <WishlistSection />
           ) : activeTab === "personal" ? (

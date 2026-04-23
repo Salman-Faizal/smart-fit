@@ -10,6 +10,7 @@ import {
   CheckCircle,
   XCircle,
   Download,
+  FileText,
 } from "lucide-react";
 
 const ORDER_STATUSES = ["PENDING_PAYMENT", "PAID", "SHIPPED", "DELIVERED", "CANCELLED"];
@@ -128,7 +129,9 @@ function AllOrdersTab() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-4 shadow-sm">
         <form onSubmit={handleSearch} className="flex min-w-[180px] flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2">
-          <Search className="h-4 w-4 shrink-0 text-slate-400" />
+          <button type="submit" className="shrink-0 text-slate-400 hover:text-slate-600">
+            <Search className="h-4 w-4" />
+          </button>
           <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Order # or customer..."
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400" />
         </form>
@@ -356,6 +359,8 @@ function BankPaymentsTab() {
   const [expandedId, setExpandedId] = useState(null);
   const [toast, setToast] = useState("");
   const [processing, setProcessing] = useState(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -363,7 +368,7 @@ function BankPaymentsTab() {
     try {
       setLoading(true);
       setError("");
-      const data = await api.getAdminPendingBankOrders({ page, limit: 20 });
+      const data = await api.getAdminPendingBankOrders({ page, limit: 20, search });
       setOrders(data.orders || []);
       setTotalPages(data.pages || 1);
     } catch (err) {
@@ -371,7 +376,7 @@ function BankPaymentsTab() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, search]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -401,8 +406,19 @@ function BankPaymentsTab() {
     }
   };
 
+  const handleBankSearch = (e) => { e.preventDefault(); setSearch(searchInput.trim()); setPage(1); };
+
   return (
     <div className="space-y-4">
+      <div className="flex rounded-2xl bg-white p-4 shadow-sm">
+        <form onSubmit={handleBankSearch} className="flex min-w-[180px] flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2">
+          <button type="submit" className="shrink-0 text-slate-400 hover:text-slate-600">
+            <Search className="h-4 w-4" />
+          </button>
+          <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Order # or customer..."
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400" />
+        </form>
+      </div>
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
         {loading ? <LoadingRows /> : error ? <ErrorRow msg={error} /> : orders.length === 0 ? (
           <EmptyRow label="No pending bank payments" />
@@ -467,7 +483,7 @@ function BankPaymentsTab() {
                             </div>
                             <div className="w-52">
                               <p className="mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Payment Slip</p>
-                              <PaymentSlipPreview url={o.paymentSlipUrl} />
+                              <PaymentSlipPreview url={o.paymentSlipUrl} resourceType={o.paymentSlipResourceType} format={o.paymentSlipFormat} />
                             </div>
                           </div>
                         </td>
@@ -499,31 +515,24 @@ function BankPaymentsTab() {
   );
 }
 
-function PaymentSlipPreview({ url }) {
+function PaymentSlipPreview({ url, resourceType, format }) {
   if (!url) return <p className="text-xs text-slate-400">No slip uploaded</p>;
 
-  const isPdf = /\.pdf(\?|$)/i.test(url) || url.toLowerCase().includes("/pdf");
-  const fileLabel = isPdf ? "PDF" : "Image";
+  const isPdf =
+    format === "pdf" ||
+    resourceType === "raw" ||
+    /\.pdf(\?|$)/i.test(url) ||
+    url.toLowerCase().includes("/raw/upload/");
 
   return (
     <div className="space-y-2">
-      <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${isPdf ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>
-        {fileLabel}
-      </span>
       {isPdf ? (
-        <div className="overflow-hidden rounded-xl border border-slate-200">
-          <iframe
-            src={url}
-            title="Payment slip PDF"
-            className="h-[500px] w-full border-0"
-          />
-          <div className="border-t border-slate-100 bg-slate-50 px-3 py-2">
-            <a href={url} target="_blank" rel="noreferrer"
-              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:underline">
-              <Download className="h-3.5 w-3.5" />
-              View PDF in new tab
-            </a>
-          </div>
+        <div
+          onClick={() => window.open(url, "_blank")}
+          className="flex h-28 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100"
+        >
+          <FileText className="h-8 w-8 text-slate-400" />
+          <p className="text-xs font-medium text-slate-500">Payment Slip (PDF)</p>
         </div>
       ) : (
         <a href={url} target="_blank" rel="noreferrer">

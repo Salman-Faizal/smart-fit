@@ -88,7 +88,7 @@ export default function CustomerHeader({ cartCount = 0 }) {
         ([entry]) => {
           if (entry.isIntersecting) setActiveSection(id);
         },
-        { threshold: 0.3, rootMargin: "-100px 0px -50% 0px" },
+        { threshold: 0.1, rootMargin: "-100px 0px -50% 0px" },
       );
       observer.observe(el);
       observers.push(observer);

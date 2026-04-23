@@ -435,6 +435,56 @@ const markOrderPaid = async (userId, orderId) => {
   return order;
 };
 
+const CANCELLABLE_STATUSES = ["PENDING_PAYMENT", "PAID"];
+
+const cancelOrder = async (userId, orderId) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    throw createHttpError(400, "Invalid order id");
+  }
+
+  const order = await Order.findOne({ _id: orderId, user: userId }).populate("items.product");
+
+  if (!order) {
+    throw createHttpError(404, "Order not found");
+  }
+
+  if (!CANCELLABLE_STATUSES.includes(order.status)) {
+    throw createHttpError(400, "This order cannot be cancelled.");
+  }
+
+  const wasPaid = order.status === "PAID";
+
+  const session = await mongoose.startSession();
+
+  try {
+    await session.startTransaction();
+
+    if (wasPaid) {
+      for (const item of order.items) {
+        await Product.updateOne(
+          { _id: item.product },
+          { $inc: { stock: item.quantity } },
+          { session },
+        );
+      }
+      await updatePurchaseCounts(order.items, -1, session);
+    }
+
+    order.status = "CANCELLED";
+    order.paymentStatus = wasPaid ? "FAILED" : order.paymentStatus;
+    await order.save({ session });
+
+    await session.commitTransaction();
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+
+  return Order.findById(order._id).populate("items.product");
+};
+
 module.exports = {
   getOrCreateCart,
   addToCart,
@@ -449,4 +499,5 @@ module.exports = {
   updateOrderStatus,
   clearCart,
   markOrderPaid,
+  cancelOrder,
 };

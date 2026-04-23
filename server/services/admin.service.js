@@ -306,8 +306,36 @@ const getAdminOrderById = async (orderId) => {
   return order;
 };
 
-const getPendingBankOrders = async ({ page = 1, limit = 20 } = {}) => {
+const getPendingBankOrders = async ({ page = 1, limit = 20, search } = {}) => {
   const query = { paymentMethod: "MANUAL", paymentStatus: "PENDING", status: { $ne: "CART" } };
+
+  if (search) {
+    const trimmed = search.trim();
+    const searchRegex = new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const matchedUsers = await User.find({ name: searchRegex }).select("_id").lean();
+    const userIds = matchedUsers.map((u) => u._id);
+
+    const orClauses = [{ user: { $in: userIds } }];
+
+    if (mongoose.Types.ObjectId.isValid(trimmed)) {
+      orClauses.push({ _id: new mongoose.Types.ObjectId(trimmed) });
+    }
+
+    if (/^[0-9a-f]+$/i.test(trimmed) && trimmed.length <= 24) {
+      orClauses.push({
+        $expr: {
+          $regexMatch: {
+            input: { $toString: "$_id" },
+            regex: trimmed,
+            options: "i",
+          },
+        },
+      });
+    }
+
+    query.$or = orClauses;
+  }
+
   const skip = (Math.max(page, 1) - 1) * limit;
 
   const [orders, total] = await Promise.all([
@@ -617,6 +645,11 @@ const getAdminProducts = async ({ page = 1, limit = 20, search, category, stockS
   return { products, total, page: Number(page), pages: Math.ceil(total / limit) };
 };
 
+const BULK_FIT_ENUM = ["Slim", "Regular", "Relaxed", "Oversized"];
+const BULK_STYLE_ENUM = ["Classic", "Streetwear", "Smart Casual", "Minimalist"];
+const BULK_OCCASION_ENUM = ["Casual", "Formal", "Night Out", "Active"];
+const BULK_COLOR_FAMILY_ENUM = ["Neutrals", "Earth Tones", "Bold & Bright", "Navy & Blues"];
+
 const bulkCreateProducts = async (rows) => {
   if (!Array.isArray(rows) || !rows.length) throw createHttpError(400, "No products provided");
 
@@ -628,7 +661,13 @@ const bulkCreateProducts = async (rows) => {
       if (!row.name || !row.category || row.price === undefined) {
         throw new Error("Missing required fields: name, category, price");
       }
-      await Product.create({
+      const primaryImage = row.primaryImage ? String(row.primaryImage).trim() : "";
+      const secondaryImages = Array.isArray(row.secondaryImages)
+        ? row.secondaryImages.filter(Boolean)
+        : [];
+      const allImages = [primaryImage, ...secondaryImages].filter(Boolean);
+
+      const productData = {
         name: String(row.name).trim(),
         category: String(row.category).trim(),
         description: row.description ? String(row.description).trim() : "",
@@ -636,8 +675,17 @@ const bulkCreateProducts = async (rows) => {
         stock: Number(row.stock || 0),
         sizes: row.sizes ? String(row.sizes).split(",").map((s) => s.trim()).filter(Boolean) : [],
         status: row.status === "inactive" ? "inactive" : "active",
-        images: row.imageUrl ? [String(row.imageUrl).trim()] : [],
-      });
+        primaryImage,
+        secondaryImages,
+        images: allImages,
+      };
+
+      if (row.fit && BULK_FIT_ENUM.includes(row.fit)) productData.fit = row.fit;
+      if (row.style && BULK_STYLE_ENUM.includes(row.style)) productData.style = row.style;
+      if (row.occasion && BULK_OCCASION_ENUM.includes(row.occasion)) productData.occasion = row.occasion;
+      if (row.colorFamily && BULK_COLOR_FAMILY_ENUM.includes(row.colorFamily)) productData.colorFamily = row.colorFamily;
+
+      await Product.create(productData);
       results.created++;
     } catch (err) {
       results.errors.push({ row: i + 1, message: err.message });
@@ -832,11 +880,36 @@ const getConversionFunnelData = async () => {
 };
 
 const getTopProductsDashboard = async (limit = 5) => {
-  return Product.find({ status: { $ne: "deleted" } })
-    .select("name category images purchases views")
-    .sort({ purchases: -1, views: -1 })
-    .limit(Math.min(Number(limit), 20))
-    .lean();
+  const cappedLimit = Math.min(Number(limit), 20);
+  const result = await Order.aggregate([
+    { $match: { paymentStatus: "PAID" } },
+    { $unwind: "$items" },
+    { $group: { _id: "$items.product", unitsSold: { $sum: "$items.quantity" } } },
+    { $sort: { unitsSold: -1 } },
+    { $limit: cappedLimit },
+    {
+      $lookup: {
+        from: "products",
+        localField: "_id",
+        foreignField: "_id",
+        as: "product",
+      },
+    },
+    { $unwind: "$product" },
+    { $match: { "product.status": { $ne: "deleted" } } },
+    {
+      $project: {
+        _id: "$product._id",
+        name: "$product.name",
+        category: "$product.category",
+        primaryImage: "$product.primaryImage",
+        images: "$product.images",
+        views: "$product.views",
+        purchases: "$unitsSold",
+      },
+    },
+  ]);
+  return result;
 };
 
 const getLowStockDashboard = async () => {

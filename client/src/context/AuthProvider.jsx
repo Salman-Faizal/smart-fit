@@ -31,6 +31,13 @@ export function AuthProvider({ children }) {
     setUser(nextUser);
   };
 
+  const loginWithData = (authData) => {
+    storage.setToken(authData.token);
+    storage.setUser(authData.user);
+    setToken(authData.token);
+    setUser(authData.user);
+  };
+
   const logout = () => {
     storage.clearAuth();
     setToken(null);
@@ -43,6 +50,7 @@ export function AuthProvider({ children }) {
       user,
       isAuthenticated: Boolean(token && user),
       login,
+      loginWithData,
       logout,
       refreshProfile,
       updateUser,

@@ -295,8 +295,6 @@ exports.getForecast = async (req, res) => {
 exports.getSalesTrend = async (req, res) => {
   try {
     const from30 = daysAgo(30);
-    const now = new Date();
-    now.setUTCHours(23, 59, 59, 999);
 
     // Find top 5 products by units sold in last 30 days
     const topAgg = await Order.aggregate([
@@ -308,40 +306,48 @@ exports.getSalesTrend = async (req, res) => {
         },
       },
       { $unwind: "$items" },
-      {
-        $group: {
-          _id: "$items.product",
-          total: { $sum: "$items.quantity" },
-        },
-      },
+      { $group: { _id: "$items.product", total: { $sum: "$items.quantity" } } },
       { $sort: { total: -1 } },
       { $limit: 5 },
     ]);
 
     if (topAgg.length === 0) {
-      return res.json({ products: [], days: [], series: [] });
+      return res.json({ products: [], dates: [], series: [] });
     }
 
     const topProductIds = topAgg.map((r) => r._id);
 
-    // Fetch product names
     const productDocs = await Product.find({ _id: { $in: topProductIds } })
       .select("_id name")
       .lean();
     const nameMap = new Map(productDocs.map((p) => [String(p._id), p.name]));
 
-    // Build 30 date labels
-    const days = [];
+    // Build 30 historical date keys + labels
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const histKeys = [];
     for (let i = 29; i >= 0; i--) {
-      const d = new Date();
-      d.setUTCHours(0, 0, 0, 0);
+      const d = new Date(today);
       d.setUTCDate(d.getUTCDate() - i);
-      days.push(
-        d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      );
+      histKeys.push(d.toISOString().slice(0, 10));
     }
 
-    // Daily sales per product
+    // Build 14 future date keys
+    const futureKeys = [];
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date(today);
+      d.setUTCDate(d.getUTCDate() + i);
+      futureKeys.push(d.toISOString().slice(0, 10));
+    }
+
+    const allKeys = [...histKeys, ...futureKeys];
+    const dates = allKeys.map((key) => {
+      const d = new Date(key + "T00:00:00Z");
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    });
+
+    // Daily sales per product (historical)
     const dailyAgg = await Order.aggregate([
       {
         $match: {
@@ -352,23 +358,18 @@ exports.getSalesTrend = async (req, res) => {
         },
       },
       { $unwind: "$items" },
-      {
-        $match: { "items.product": { $in: topProductIds } },
-      },
+      { $match: { "items.product": { $in: topProductIds } } },
       {
         $group: {
           _id: {
             product: "$items.product",
-            day: {
-              $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
-            },
+            day: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
           },
           units: { $sum: "$items.quantity" },
         },
       },
     ]);
 
-    // Build lookup: productId → dayString → units
     const salesLookup = new Map();
     for (const r of dailyAgg) {
       const pid = String(r._id.product);
@@ -376,25 +377,49 @@ exports.getSalesTrend = async (req, res) => {
       salesLookup.get(pid).set(r._id.day, r.units);
     }
 
-    // Build series, respecting the order from topAgg (best-sellers first)
     const series = topProductIds.map((pid) => {
       const strId = String(pid);
       const name = nameMap.get(strId) || "Unknown";
       const dayMap = salesLookup.get(strId) || new Map();
-      const data = [];
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date();
-        d.setUTCHours(0, 0, 0, 0);
-        d.setUTCDate(d.getUTCDate() - i);
-        const key = d.toISOString().slice(0, 10);
-        data.push(dayMap.get(key) || 0);
+
+      // Build 30-day actual values
+      const actual = histKeys.map((key) => dayMap.get(key) ?? 0);
+
+      // 7-day rolling average from the most recent 7 days
+      const last7 = actual.slice(-7);
+      const avg7 = last7.reduce((s, v) => s + v, 0) / 7;
+
+      // Determine trend: compare last 7 days vs prior 7 days
+      const prior7 = actual.slice(-14, -7);
+      const avgPrior7 = prior7.reduce((s, v) => s + v, 0) / 7;
+      let trendDir = "stable";
+      if (avgPrior7 > 0) {
+        const change = (avg7 - avgPrior7) / avgPrior7;
+        if (change > 0.05) trendDir = "rising";
+        else if (change < -0.05) trendDir = "declining";
       }
-      return { name, data };
+
+      // Build 14-day forecast with trend decay/growth
+      const forecast = futureKeys.map((_, dayIdx) => {
+        let projected = avg7;
+        if (trendDir === "declining") {
+          projected = avg7 * Math.pow(0.95, dayIdx + 1);
+        } else if (trendDir === "rising") {
+          projected = Math.min(avg7 * Math.pow(1.02, dayIdx + 1), avg7 * 2);
+        }
+        return Math.max(0, Math.round(projected * 10) / 10);
+      });
+
+      return {
+        name,
+        actual: [...actual, ...Array(14).fill(null)],
+        forecast: [...Array(30).fill(null), ...forecast],
+      };
     });
 
     return res.json({
       products: topProductIds.map((id) => nameMap.get(String(id)) || "Unknown"),
-      days,
+      dates,
       series,
     });
   } catch (error) {

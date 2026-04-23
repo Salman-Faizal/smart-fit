@@ -4,6 +4,11 @@ import { ChevronDown } from "lucide-react";
 
 const ALL_SIZES = ["S", "M", "L", "XL", "XXL"];
 
+const FIT_OPTIONS = ["", "Slim", "Regular", "Relaxed", "Oversized"];
+const STYLE_OPTIONS = ["", "Classic", "Streetwear", "Smart Casual", "Minimalist"];
+const OCCASION_OPTIONS = ["", "Casual", "Formal", "Night Out", "Active"];
+const COLOR_FAMILY_OPTIONS = ["", "Neutrals", "Earth Tones", "Bold & Bright", "Navy & Blues"];
+
 const initialValues = {
   name: "",
   category: "",
@@ -12,6 +17,10 @@ const initialValues = {
   description: "",
   sizes: [],
   status: "active",
+  fit: "",
+  style: "",
+  occasion: "",
+  colorFamily: "",
 };
 
 export default function ProductForm({
@@ -19,7 +28,8 @@ export default function ProductForm({
   loading,
   submitLabel,
   defaultValues = initialValues,
-  existingImages = [],
+  existingPrimaryImage = "",
+  existingSecondaryImages = [],
   categories = [],
 }) {
   const [formData, setFormData] = useState({
@@ -27,8 +37,17 @@ export default function ProductForm({
     ...defaultValues,
     sizes: Array.isArray(defaultValues.sizes) ? defaultValues.sizes : [],
     status: defaultValues.status || "active",
+    fit: defaultValues.fit || "",
+    style: defaultValues.style || "",
+    occasion: defaultValues.occasion || "",
+    colorFamily: defaultValues.colorFamily || "",
   });
-  const [imageFiles, setImageFiles] = useState([]);
+  const [primaryImageFile, setPrimaryImageFile] = useState(null);
+  const [primaryImagePreview, setPrimaryImagePreview] = useState(null);
+  const [currentPrimaryImage, setCurrentPrimaryImage] = useState(existingPrimaryImage || "");
+  const [secondaryImageFiles, setSecondaryImageFiles] = useState([]);
+  const [secondaryImagePreviews, setSecondaryImagePreviews] = useState([]);
+  const [keepSecondaryImages, setKeepSecondaryImages] = useState(existingSecondaryImages || []);
   const [catQuery, setCatQuery] = useState(defaultValues.category || "");
   const [catOpen, setCatOpen] = useState(false);
   const catRef = useRef(null);
@@ -50,10 +69,24 @@ export default function ProductForm({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const previewUrls = useMemo(
-    () => imageFiles.map((file) => URL.createObjectURL(file)),
-    [imageFiles],
-  );
+  const handlePrimaryImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPrimaryImageFile(file);
+    setPrimaryImagePreview(URL.createObjectURL(file));
+    setCurrentPrimaryImage("");
+  };
+
+  const handleSecondaryImageChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    setSecondaryImageFiles((prev) => [...prev, ...files]);
+    setSecondaryImagePreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
+  };
+
+  const removeNewSecondary = (idx) => {
+    setSecondaryImageFiles((prev) => prev.filter((_, i) => i !== idx));
+    setSecondaryImagePreviews((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -78,9 +111,15 @@ export default function ProductForm({
     Object.entries(rest).forEach(([key, value]) =>
       payload.append(key, value ?? ""),
     );
-    // Send sizes as JSON array string so backend can parse it
     payload.append("sizes", JSON.stringify(sizes || []));
-    imageFiles.forEach((file) => payload.append("images", file));
+
+    if (primaryImageFile) {
+      payload.append("primaryImage", primaryImageFile);
+    } else if (!currentPrimaryImage) {
+      payload.append("clearPrimaryImage", "true");
+    }
+    secondaryImageFiles.forEach((file) => payload.append("secondaryImages", file));
+    payload.append("keepSecondaryImages", JSON.stringify(keepSecondaryImages));
 
     onSubmit(payload);
   };
@@ -219,44 +258,72 @@ export default function ProductForm({
         />
       </label>
 
-      <label className="block text-sm font-medium text-slate-700">
-        Images
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={(event) =>
-            setImageFiles(Array.from(event.target.files || []))
-          }
-          className="mt-2 block w-full rounded-lg border border-slate-300 p-2 text-sm"
-        />
-      </label>
+      {/* Style Attributes */}
+      <div>
+        <span className="block text-sm font-medium text-slate-700 mb-1">
+          Style Attributes <span className="text-xs font-normal text-slate-400">— Optional, improves quiz matching</span>
+        </span>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {[
+            { label: "Fit", name: "fit", options: FIT_OPTIONS },
+            { label: "Style", name: "style", options: STYLE_OPTIONS },
+            { label: "Occasion", name: "occasion", options: OCCASION_OPTIONS },
+            { label: "Color Family", name: "colorFamily", options: COLOR_FAMILY_OPTIONS },
+          ].map(({ label, name, options }) => (
+            <label key={name} className="block text-xs font-medium text-slate-500">
+              {label}
+              <select
+                name={name}
+                value={formData[name]}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
+              >
+                {options.map((o) => (
+                  <option key={o} value={o}>{o || "— None —"}</option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+      </div>
 
-      {previewUrls.length ? (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {previewUrls.map((previewUrl, index) => (
-            <img
-              key={`${previewUrl}-${index}`}
-              src={previewUrl}
-              alt={`new-upload-${index + 1}`}
-              className="h-24 w-full rounded-md object-cover bg-slate-100"
-              onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
-            />
+      {/* Primary Image */}
+      <div>
+        <span className="block text-sm font-medium text-slate-700 mb-2">Primary Image <span className="text-red-500">*</span></span>
+        {primaryImagePreview ? (
+          <div className="relative inline-block">
+            <img src={primaryImagePreview} alt="primary preview" className="h-28 w-28 rounded-xl object-cover bg-slate-100" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
+            <button type="button" onClick={() => { setPrimaryImageFile(null); setPrimaryImagePreview(null); }} className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow">×</button>
+          </div>
+        ) : currentPrimaryImage ? (
+          <div className="relative inline-block">
+            <img src={assetUrl(currentPrimaryImage)} alt="primary" className="h-28 w-28 rounded-xl object-cover bg-slate-100" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
+            <button type="button" onClick={() => setCurrentPrimaryImage("")} className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow">×</button>
+          </div>
+        ) : (
+          <input type="file" accept="image/*" onChange={handlePrimaryImageChange} className="block w-full rounded-lg border border-slate-300 p-2 text-sm" />
+        )}
+      </div>
+
+      {/* Secondary Images */}
+      <div>
+        <span className="block text-sm font-medium text-slate-700 mb-2">Secondary Images <span className="text-xs font-normal text-slate-400">(optional)</span></span>
+        <div className="flex flex-wrap gap-3 mb-2">
+          {keepSecondaryImages.map((url, idx) => (
+            <div key={`existing-${idx}`} className="relative">
+              <img src={assetUrl(url)} alt={`secondary-${idx + 1}`} className="h-20 w-20 rounded-lg object-cover bg-slate-100" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
+              <button type="button" onClick={() => setKeepSecondaryImages((prev) => prev.filter((_, i) => i !== idx))} className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow">×</button>
+            </div>
+          ))}
+          {secondaryImagePreviews.map((src, idx) => (
+            <div key={`new-${idx}`} className="relative">
+              <img src={src} alt={`new-secondary-${idx + 1}`} className="h-20 w-20 rounded-lg object-cover bg-slate-100" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
+              <button type="button" onClick={() => removeNewSecondary(idx)} className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow">×</button>
+            </div>
           ))}
         </div>
-      ) : existingImages.length ? (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {existingImages.map((image, index) => (
-            <img
-              key={`${image}-${index}`}
-              src={assetUrl(image)}
-              alt={`existing-${index + 1}`}
-              className="h-24 w-full rounded-md object-cover bg-slate-100"
-              onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
-            />
-          ))}
-        </div>
-      ) : null}
+        <input type="file" accept="image/*" multiple onChange={handleSecondaryImageChange} className="block w-full rounded-lg border border-slate-300 p-2 text-sm" />
+      </div>
 
       <button
         type="submit"

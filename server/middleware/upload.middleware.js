@@ -92,7 +92,10 @@ const paymentSlipUploader = createCloudinaryUploader({
 
 module.exports = {
   runUpload,
-  uploadProductImages: productUploader.array("images", 10),
+  uploadProductImages: productUploader.fields([
+    { name: "primaryImage", maxCount: 1 },
+    { name: "secondaryImages", maxCount: 9 },
+  ]),
   uploadAvatar: avatarUploader.single("avatar"),
   uploadPaymentSlip: paymentSlipUploader.single("paymentSlip"),
 };

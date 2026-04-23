@@ -70,7 +70,9 @@ function NavItem({ item, collapsed, onClick }) {
     >
       {({ isActive }) => (
         <>
-          <Icon className={`h-[18px] w-[18px] shrink-0 ${isActive ? "text-white" : ""}`} />
+          <Icon
+            className={`h-[18px] w-[18px] shrink-0 ${isActive ? "text-white" : ""}`}
+          />
           {!collapsed && <span>{item.label}</span>}
         </>
       )}
@@ -106,22 +108,41 @@ export default function AdminLayout() {
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 py-5">
-        <img src={logoIcon} alt="Smart Fit" className="h-8 w-8 rounded-lg object-contain" />
+        <img
+          src={logoIcon}
+          alt="Smart Fit"
+          className="h-8 w-8 rounded-lg object-contain"
+        />
         <div>
-          <p className="text-sm font-bold text-slate-900 leading-tight">Smart Fit</p>
-          <p className="text-[10px] text-slate-400 leading-tight">Admin Panel</p>
+          <p className="text-sm font-bold text-slate-900 leading-tight">
+            Smart Fit
+          </p>
+          <p className="text-[10px] text-slate-400 leading-tight">
+            Admin Panel
+          </p>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4 pt-3">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4 pt-4">
         {PRIMARY_NAV.map((item) => (
-          <NavItem key={item.to} item={item} collapsed={false} onClick={onNavClick} />
+          <NavItem
+            key={item.to}
+            item={item}
+            collapsed={false}
+            onClick={onNavClick}
+          />
         ))}
 
-        <div className="my-5 border-t border-slate-200" />
+        <div className="pt-4" />
+        <div className="pb-4 border-t border-slate-200" />
 
         {SECONDARY_NAV.map((item) => (
-          <NavItem key={item.to} item={item} collapsed={false} onClick={onNavClick} />
+          <NavItem
+            key={item.to}
+            item={item}
+            collapsed={false}
+            onClick={onNavClick}
+          />
         ))}
       </nav>
 
@@ -175,7 +196,9 @@ export default function AdminLayout() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <h1 className="text-base font-semibold text-slate-900 lg:text-lg">{pageTitle}</h1>
+            <h1 className="text-base font-semibold text-slate-900 lg:text-lg">
+              {pageTitle}
+            </h1>
           </div>
 
           <button
@@ -195,8 +218,12 @@ export default function AdminLayout() {
               </div>
             )}
             <div className="hidden text-right sm:block">
-              <p className="text-sm font-semibold text-slate-800 leading-tight">{user?.name || "Admin"}</p>
-              <p className="text-[11px] text-slate-400 leading-tight">Administrator</p>
+              <p className="text-sm font-semibold text-slate-800 leading-tight">
+                {user?.name || "Admin"}
+              </p>
+              <p className="text-[11px] text-slate-400 leading-tight">
+                Administrator
+              </p>
             </div>
           </button>
         </header>

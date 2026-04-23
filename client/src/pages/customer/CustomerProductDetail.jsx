@@ -314,9 +314,16 @@ export default function CustomerProductDetail() {
   if (error) return <ErrorState message={error} />;
   if (!product) return null;
 
-  const images = product.images?.length
-    ? product.images.map((img) => assetUrl(img))
-    : ["https://placehold.co/900x700?text=Product"];
+  const primaryImg = product.primaryImage
+    ? assetUrl(product.primaryImage)
+    : product.images?.[0]
+    ? assetUrl(product.images[0])
+    : null;
+  const secondaryImgs = (product.secondaryImages?.length
+    ? product.secondaryImages
+    : product.images?.slice(1) || []
+  ).map((img) => assetUrl(img));
+  const images = primaryImg ? [primaryImg, ...secondaryImgs] : secondaryImgs.length ? secondaryImgs : ["https://placehold.co/900x700?text=Product"];
 
   const description =
     product.description && product.description.length > 20
@@ -329,51 +336,53 @@ export default function CustomerProductDetail() {
 
   return (
     <section className="space-y-12">
-      {/* ── Back link ─────────────────────────────────────────────────────── */}
-      <Link to="/home" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-amber-600 transition">
-        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
-        Back to products
-      </Link>
-
       {/* ── Main product section ──────────────────────────────────────────── */}
       <div className="grid gap-10 md:grid-cols-2">
         {/* Left — Image gallery */}
-        <div className="space-y-3">
-          {/* Main image */}
-          <div className="overflow-hidden rounded-2xl bg-slate-100">
-            <img
-              src={images[activeImage] || "https://placehold.co/400x500?text=No+Image"}
-              alt={product.name}
-              className="w-full object-cover"
-              style={{ aspectRatio: "4/5" }}
-              onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
-            />
-          </div>
+        <div className="space-y-2">
+          {/* Back link above image */}
+          <Link to="/home" className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-amber-600 transition">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
+            Back to Products
+          </Link>
 
-          {/* Thumbnails */}
-          {images.length > 1 ? (
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-              {images.map((src, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setActiveImage(idx)}
-                  className={`h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border-2 transition ${
-                    activeImage === idx
-                      ? "border-slate-900"
-                      : "border-transparent opacity-60 hover:opacity-100"
-                  }`}
-                >
-                  <img
-                    src={src || "https://placehold.co/400x500?text=No+Image"}
-                    alt=""
-                    className="h-full w-full object-cover"
-                    onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
-                  />
-                </button>
-              ))}
+          {/* Thumbnail strip (left) + main image (right) */}
+          <div className="flex gap-3">
+            {/* Vertical thumbnail strip — only when secondary images exist */}
+            {secondaryImgs.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {images.map((src, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveImage(idx)}
+                    className={`h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border-2 transition ${
+                      activeImage === idx
+                        ? "border-amber-500 opacity-100"
+                        : "border-transparent opacity-55 hover:opacity-100"
+                    }`}
+                  >
+                    <img
+                      src={src}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Main image with hover zoom */}
+            <div className="flex-1 overflow-hidden rounded-2xl bg-slate-100 cursor-zoom-in" style={{ height: "500px" }}>
+              <img
+                src={images[activeImage] || "https://placehold.co/400x500?text=No+Image"}
+                alt={product.name}
+                className="h-full w-full object-contain transition-transform duration-[400ms] hover:scale-[1.08]"
+                onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
+              />
             </div>
-          ) : null}
+          </div>
         </div>
 
         {/* Right — Product info */}

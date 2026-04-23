@@ -12,6 +12,7 @@ router.post("/orders/checkout", protect, orderController.checkoutOrder);
 router.get("/orders/my", protect, orderController.getOrdersByUser);
 router.get("/orders/:orderId", protect, orderController.getOrderById);
 router.patch("/orders/:orderId/mark-paid", protect, orderController.markOrderPaid);
+router.patch("/orders/:orderId/cancel", protect, orderController.cancelOrder);
 
 router.get(
   "/admin/orders",

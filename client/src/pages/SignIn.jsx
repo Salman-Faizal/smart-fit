@@ -103,7 +103,7 @@ export default function SignIn() {
         <p className="mt-8 text-center text-sm text-gray-600">
           Don’t have an account?{" "}
           <a
-            href="/signup"
+            href="/register"
             className="text-amber-600 hover:underline font-medium"
           >
             Sign up

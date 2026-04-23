@@ -83,6 +83,7 @@ async function resolveComplementCategories(cartCategories, excludeCategorySet) {
   // Fetch all distinct categories from DB and filter by keyword match
   const allCategories = await Product.distinct("category", {
     stock: { $gt: 0 },
+    status: { $ne: "deleted" },
   });
 
   return allCategories.filter((dbCat) => {
@@ -161,6 +162,7 @@ async function getCheckoutUpsell({ userId, cartProductIds = [] }) {
     .filter(
       (p) =>
         p &&
+        p.status !== "deleted" &&
         Number(p.stock) > 0 &&
         !excludeIdStrings.has(p._id.toString()),
     )
@@ -197,6 +199,7 @@ async function getCheckoutUpsell({ userId, cartProductIds = [] }) {
     const repeatViewProducts = await Product.find({
       _id: { $in: repeatViewIds },
       stock: { $gt: 0 },
+      status: { $ne: "deleted" },
     })
       .select(UPSELL_SELECT)
       .lean();
@@ -240,6 +243,7 @@ async function getCheckoutUpsell({ userId, cartProductIds = [] }) {
       const alreadySeenOids = toObjectIds([...seenIds, ...excludeIdStrings]);
       const complementProducts = await Product.find({
         stock: { $gt: 0 },
+        status: { $ne: "deleted" },
         category: { $in: complementCategoryNames },
         _id: { $nin: alreadySeenOids },
       })
@@ -257,6 +261,7 @@ async function getCheckoutUpsell({ userId, cartProductIds = [] }) {
     const flashExcludeOids = toObjectIds([...seenIds, ...excludeIdStrings]);
     const trending = await Product.find({
       stock: { $gt: 0 },
+      status: { $ne: "deleted" },
       ...(flashExcludeOids.length
         ? { _id: { $nin: flashExcludeOids } }
         : {}),

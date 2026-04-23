@@ -62,8 +62,8 @@ const QUESTIONS = [
     type: "single",
     options: [
       { value: "Under LKR 2,000", Icon: Tag },
-      { value: "LKR 2,000\u20134,000", Icon: Tag },
-      { value: "LKR 4,000\u20137,000", Icon: Tag },
+      { value: "LKR 2,000–4,000", Icon: Tag },
+      { value: "LKR 4,000–7,000", Icon: Tag },
       { value: "LKR 7,000+", Icon: Tag },
     ],
   },
@@ -255,13 +255,78 @@ function LoadingCard({ msgIdx }) {
 
 // ─── Results Section ──────────────────────────────────────────────────────────
 
-function ResultsSection({ results, onRetake }) {
+const FALLBACK_MESSAGES = {
+  1: null,
+  2: null,
+  3: "Exact matches are limited right now — showing the closest picks from our current collection.",
+  4: "Our current collection doesn’t have a perfect match for every preference, but these are the best fits we found.",
+};
+
+const HEADING_MESSAGES = {
+  1: (n) => `${n} item${n !== 1 ? "s" : ""} matched your style profile`,
+  2: (n) => `We found ${n === 1 ? "a close match" : `${n} close matches`} for your style`,
+  3: (n) => `${n === 1 ? "1 pick" : `${n} picks`} from our collection`,
+  4: (n) => `${n === 1 ? "1 pick" : `${n} picks`} — the best we have right now`,
+};
+
+function buildAnswerPills(answers) {
+  const pills = [];
+  if (answers.occasion) pills.push(answers.occasion);
+  if (answers.fit) pills.push(answers.fit);
+  if (answers.style) pills.push(answers.style);
+  if (answers.colorMood) pills.push(answers.colorMood);
+  if (answers.budget) pills.push(answers.budget);
+  if (answers.categories?.length) pills.push(...answers.categories);
+  return pills;
+}
+
+function WhyThesePicks({ answers }) {
+  const [open, setOpen] = useState(false);
+  const pills = buildAnswerPills(answers);
+  if (!pills.length) return null;
+
+  return (
+    <div className="mb-6 flex flex-col items-center gap-2">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-amber-600 transition-colors font-medium"
+      >
+        <span>Why these picks?</span>
+        <span
+          className="transition-transform duration-200"
+          style={{ display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+        >
+          &#9660;
+        </span>
+      </button>
+      {open && (
+        <div className="flex flex-wrap justify-center gap-2 mt-1 max-w-xl">
+          {pills.map((pill) => (
+            <span
+              key={pill}
+              className="bg-slate-100 text-slate-600 text-xs font-medium px-3 py-1 rounded-full border border-slate-200"
+            >
+              {pill}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultsSection({ results, answers, onRetake }) {
   const navigate = useNavigate();
+  const fallbackLevel = results?.fallbackLevel ?? 1;
+  const products = results?.products ?? [];
+  const totalFound = results?.totalFound ?? products.length;
+  const fallbackMsg = FALLBACK_MESSAGES[fallbackLevel] ?? null;
+  const headingFn = HEADING_MESSAGES[fallbackLevel] ?? HEADING_MESSAGES[1];
 
   return (
     <div className="py-8">
       {/* Header */}
-      <div className="mb-8 text-center">
+      <div className="mb-6 text-center">
         <h2 className="text-2xl font-bold text-slate-900 mb-3">
           Your Style Picks{" "}
           <span role="img" aria-label="target">
@@ -269,77 +334,74 @@ function ResultsSection({ results, onRetake }) {
           </span>
         </h2>
         {results?.styleSummary && (
-          <span className="inline-block bg-amber-50 text-amber-700 border border-amber-200 text-sm font-semibold px-4 py-1.5 rounded-full">
+          <span className="inline-block bg-amber-50 text-amber-700 border border-amber-200 text-sm font-semibold px-4 py-1.5 rounded-full mb-3">
             {results.styleSummary}
           </span>
         )}
-        {results?.totalFound != null && (
-          <p className="text-slate-400 text-sm mt-3">
-            {results.isFallback
-              ? "Showing our closest picks \u2014 we couldn\u2019t find an exact match for all your preferences"
-              : `${results.totalFound} product${results.totalFound !== 1 ? "s" : ""} matched your style profile`}
-          </p>
+        {products.length > 0 && (
+          <p className="text-slate-400 text-sm mt-2">{headingFn(totalFound)}</p>
+        )}
+        {fallbackMsg && (
+          <p className="text-slate-400 text-xs mt-2 italic max-w-sm mx-auto">{fallbackMsg}</p>
         )}
       </div>
 
+      {/* Why these picks */}
+      {products.length > 0 && <WhyThesePicks answers={answers} />}
+
       {/* Grid or empty state */}
-      {!results?.products?.length ? (
+      {!products.length ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Wand2 size={40} className="text-slate-300 mb-4" />
-          <p className="text-slate-600 font-semibold text-lg mb-2">
-            We couldn&rsquo;t find an exact match
+          <p className="text-slate-700 font-semibold text-lg mb-2">
+            Nothing matched your style right now
           </p>
           <p className="text-slate-400 text-sm mb-8">
-            Try adjusting your answers to see more picks
+            Our current collection doesn&rsquo;t have active in-stock products matching your preferences.
           </p>
           <button
-            onClick={onRetake}
-            className="bg-amber-600 text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-amber-700 transition-colors"
-          >
-            Retake Quiz &rarr;
-          </button>
-        </div>
-      ) : (
-        <>
-          {results.products.length <= 3 && (
-            <p className="text-center text-slate-400 text-sm mb-6 italic">
-              Showing our closest matches for your style
-            </p>
-          )}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-10">
-            {results.products.map((product) => (
-              <div key={product._id}>
-                <ProductCard product={product} />
-                {product.reason && (
-                  <p className="text-xs text-slate-400 italic mt-1.5 px-1">
-                    {product.reason}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Bottom actions */}
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-6 border-t border-slate-100">
-        <p className="text-slate-400 text-sm">Not what you expected?</p>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onRetake}
-            className="text-amber-600 text-sm font-semibold hover:text-amber-700 transition-colors"
-          >
-            Retake Quiz &rarr;
-          </button>
-          <span className="text-slate-200 select-none">|</span>
-          <button
             onClick={() => navigate("/home")}
-            className="border border-slate-300 text-slate-600 text-sm font-medium px-4 py-1.5 rounded-full hover:border-slate-400 hover:text-slate-800 transition-colors"
+            className="bg-amber-600 text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-amber-700 transition-colors"
           >
             Browse All Products
           </button>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-10">
+          {products.map((product) => (
+            <div key={product._id}>
+              <ProductCard product={product} />
+              {product.reason && (
+                <p className="text-xs text-slate-400 italic mt-1.5 px-1">
+                  {product.reason}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Bottom actions */}
+      {products.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-6 border-t border-slate-100">
+          <p className="text-slate-400 text-sm">Not what you expected?</p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onRetake}
+              className="text-amber-600 text-sm font-semibold hover:text-amber-700 transition-colors"
+            >
+              Retake Quiz &rarr;
+            </button>
+            <span className="text-slate-200 select-none">|</span>
+            <button
+              onClick={() => navigate("/home")}
+              className="border border-slate-300 text-slate-600 text-sm font-medium px-4 py-1.5 rounded-full hover:border-slate-400 hover:text-slate-800 transition-colors"
+            >
+              Browse All Products
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -475,7 +537,7 @@ export default function StyleQuizPage() {
   if (phase === "results") {
     return (
       <div ref={resultsRef}>
-        <ResultsSection results={results} onRetake={handleRetake} />
+        <ResultsSection results={results} answers={answers} onRetake={handleRetake} />
       </div>
     );
   }
@@ -627,7 +689,7 @@ export default function StyleQuizPage() {
               : "bg-slate-100 text-slate-400 cursor-not-allowed"
           }`}
         >
-          {step === TOTAL_STEPS - 1 ? "See My Picks \u2192" : "Next \u2192"}
+          {step === TOTAL_STEPS - 1 ? "See My Picks →" : "Next →"}
         </button>
       </div>
     </div>

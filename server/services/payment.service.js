@@ -6,6 +6,7 @@ const User = require("../models/User");
 const { appendUniqueWithLimit } = require("./userTracking.service");
 const { destroyCloudinaryAsset } = require("../utils/cloudinaryAsset");
 const { clearCart } = require("./order.service");
+const { sendEmail, orderConfirmationEmail } = require("./email.service");
 
 const createHttpError = (statusCode, message) => {
   const error = new Error(message);
@@ -369,6 +370,16 @@ const applyStripePaymentOutcome = async (order, payload, isSuccess) => {
       order.paymentStatus = "PAID";
       order.status = "PAID";
       await clearCart(order.user, session);
+
+      // Fire-and-forget confirmation email after successful Stripe payment
+      const paidUser = await User.findById(order.user).select("name email");
+      if (paidUser) {
+        sendEmail(
+          paidUser.email,
+          `Order Confirmed — #${String(order._id).slice(-8).toUpperCase()} 🎉`,
+          orderConfirmationEmail(paidUser.name, order),
+        ).catch(() => {});
+      }
     } else {
       order.paymentStatus = "FAILED";
       order.status = "CANCELLED";

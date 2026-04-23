@@ -72,7 +72,8 @@ export default function AdminProductEditPage() {
         submitLabel="Save Changes"
         onSubmit={handleSubmit}
         loading={submitting}
-        existingImages={product.images || []}
+        existingPrimaryImage={product.primaryImage || product.images?.[0] || ""}
+        existingSecondaryImages={product.secondaryImages?.length ? product.secondaryImages : (product.images?.slice(1) || [])}
         categories={categories}
         defaultValues={{
           name: product.name,
@@ -82,6 +83,10 @@ export default function AdminProductEditPage() {
           description: product.description || "",
           sizes: product.sizes || [],
           status: product.status || "active",
+          fit: product.fit || "",
+          style: product.style || "",
+          occasion: product.occasion || "",
+          colorFamily: product.colorFamily || "",
         }}
       />
     </section>
