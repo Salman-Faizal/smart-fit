@@ -11,8 +11,8 @@ import {
   LineChart,
   Line,
   CartesianGrid,
-  Legend,
   ReferenceLine,
+  ReferenceArea,
 } from "recharts";
 import {
   RefreshCw,
@@ -190,7 +190,7 @@ function RunwayChart({ products }) {
           tickLine={false}
         />
         <Tooltip content={<RunwayTooltip />} />
-        <Bar dataKey="days" radius={[0, 4, 4, 0]} maxBarSize={18}>
+        <Bar dataKey="days" radius={[0, 4, 4, 0]} maxBarSize={18} minPointSize={3}>
           {atRisk.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={barColor(entry.days)} />
           ))}
@@ -202,7 +202,7 @@ function RunwayChart({ products }) {
 
 // ─── Performance Forecast Chart ───────────────────────────────────────────────
 
-const ForecastTooltip = ({ active, payload, label }) => {
+const ForecastTooltip = ({ active, payload, label, seriesNames }) => {
   if (!active || !payload?.length) return null;
   const visible = payload.filter((p) => p.value !== null && p.value !== undefined);
   if (!visible.length) return null;
@@ -211,7 +211,8 @@ const ForecastTooltip = ({ active, payload, label }) => {
       <p className="font-semibold text-slate-700 mb-1.5">{label}</p>
       {visible.map((p) => {
         const isForecast = p.dataKey.endsWith("__fc");
-        const productName = isForecast ? p.dataKey.slice(0, -4) : p.dataKey;
+        const idx = parseInt(isForecast ? p.dataKey.slice(1, -4) : p.dataKey.slice(1), 10);
+        const productName = (seriesNames && seriesNames[idx]) || p.dataKey;
         return (
           <p key={p.dataKey} style={{ color: p.color }} className="leading-snug">
             {productName}
@@ -237,88 +238,101 @@ function ForecastChart({ trendData, loading }) {
   }
 
   const { dates, series } = trendData;
+  const seriesNames = series.map((s) => s.name);
 
-  // Build flat chart data: each date is one row
-  // Actual keys: product name; Forecast keys: product name + "__fc"
+  // Use index-based keys (p0, p1, ...) to avoid recharts treating dots in product
+  // names as nested path accessors, and to prevent key collisions between series
   const chartData = dates.map((date, i) => {
     const point = { date };
-    series.forEach((s) => {
-      point[s.name] = s.actual[i] ?? null;
-      point[`${s.name}__fc`] = s.forecast[i] ?? null;
+    series.forEach((s, si) => {
+      point[`p${si}`] = s.actual[i] ?? null;
+      point[`p${si}__fc`] = s.forecast[i] ?? null;
     });
     return point;
   });
 
   // Today is index 29 (last historical day)
   const todayLabel = dates[29] || "";
+  const lastLabel = dates[dates.length - 1] || "";
   const tickFormatter = (val, idx) => (idx % 7 === 0 ? val : "");
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-        <XAxis
-          dataKey="date"
-          tick={{ fontSize: 10, fill: "#94a3b8" }}
-          axisLine={false}
-          tickLine={false}
-          tickFormatter={tickFormatter}
-        />
-        <YAxis
-          tick={{ fontSize: 11, fill: "#94a3b8" }}
-          axisLine={false}
-          tickLine={false}
-          allowDecimals={false}
-        />
-        <Tooltip content={<ForecastTooltip />} />
-        <Legend
-          wrapperStyle={{ fontSize: 10, paddingTop: 8 }}
-          iconType="circle"
-          iconSize={7}
-          formatter={(value) => value.endsWith("__fc") ? null : value}
-          payload={series.map((s, i) => ({
-            value: s.name,
-            type: "circle",
-            color: LINE_COLORS[i % LINE_COLORS.length],
-          }))}
-        />
-        {/* Today reference line */}
-        <ReferenceLine
-          x={todayLabel}
-          stroke="#cbd5e1"
-          strokeDasharray="4 3"
-          label={{ value: "Today", position: "insideTopRight", fontSize: 9, fill: "#94a3b8" }}
-        />
-        {series.map((s, i) => {
-          const color = LINE_COLORS[i % LINE_COLORS.length];
-          return [
-            <Line
-              key={`${s.name}-actual`}
-              type="monotone"
-              dataKey={s.name}
-              stroke={color}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 3 }}
-              connectNulls={false}
-              legendType="none"
-            />,
-            <Line
-              key={`${s.name}-forecast`}
-              type="monotone"
-              dataKey={`${s.name}__fc`}
-              stroke={color}
-              strokeWidth={1.5}
-              strokeDasharray="5 3"
-              dot={false}
-              activeDot={{ r: 3 }}
-              connectNulls={false}
-              legendType="none"
-            />,
-          ];
-        })}
-      </LineChart>
-    </ResponsiveContainer>
+    <div>
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+          <XAxis
+            dataKey="date"
+            tick={{ fontSize: 10, fill: "#94a3b8" }}
+            axisLine={false}
+            tickLine={false}
+            tickFormatter={tickFormatter}
+          />
+          <YAxis
+            tick={{ fontSize: 11, fill: "#94a3b8" }}
+            axisLine={false}
+            tickLine={false}
+            allowDecimals={false}
+          />
+          <Tooltip content={<ForecastTooltip seriesNames={seriesNames} />} />
+          {/* Forecast zone shading */}
+          <ReferenceArea
+            x1={todayLabel}
+            x2={lastLabel}
+            fill="#fef9c3"
+            fillOpacity={0.3}
+            strokeOpacity={0}
+          />
+          {/* Today reference line */}
+          <ReferenceLine
+            x={todayLabel}
+            stroke="#cbd5e1"
+            strokeDasharray="4 3"
+            label={{ value: "Today", position: "insideTopRight", fontSize: 9, fill: "#94a3b8" }}
+          />
+          {series.map((s, i) => {
+            const color = LINE_COLORS[i % LINE_COLORS.length];
+            return [
+              <Line
+                key={`actual-${i}`}
+                type="monotone"
+                dataKey={`p${i}`}
+                stroke={color}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 3 }}
+                connectNulls={false}
+                legendType="none"
+              />,
+              <Line
+                key={`forecast-${i}`}
+                type="monotone"
+                dataKey={`p${i}__fc`}
+                stroke={color}
+                strokeWidth={1.5}
+                strokeDasharray="5 3"
+                dot={false}
+                activeDot={{ r: 3 }}
+                connectNulls={false}
+                legendType="none"
+              />,
+            ];
+          })}
+        </LineChart>
+      </ResponsiveContainer>
+      {/* Custom legend below chart */}
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-4">
+        {series.map((s, i) => (
+          <div key={i} className="flex items-center gap-1.5 text-xs text-slate-600">
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: LINE_COLORS[i % LINE_COLORS.length] }}
+            />
+            {s.name}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -634,7 +648,7 @@ export default function AdminForecastPage() {
             Sales Performance &amp; 14-Day Forecast
           </h2>
           <p className="mb-4 text-xs text-slate-400">
-            Top 5 products — solid lines: actual · dashed: projected
+            Top 3 products — solid lines: actual · dashed: projected
           </p>
           <ForecastChart trendData={trendData} loading={trendLoading} />
         </div>

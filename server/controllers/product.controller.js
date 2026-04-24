@@ -2,6 +2,7 @@ const Product = require("../models/Product");
 const User = require("../models/User");
 const { prependUniqueWithLimit } = require("../services/userTracking.service");
 const { destroyCloudinaryAsset, destroyCloudinaryAssets } = require("../utils/cloudinaryAsset");
+const { buildSearchIndex, getSuggestions } = require("../services/searchIndex.service");
 
 const mapUploadedFiles = (files = []) => {
   return files.map((file) => ({
@@ -54,6 +55,7 @@ exports.createProduct = async (req, res) => {
       ...pickStyleAttrs(req.body || {}),
     });
 
+    buildSearchIndex().catch(() => {});
     return res.status(201).json(product);
   } catch (_err) {
     return res.status(500).json({ message: "Failed to create product" });
@@ -276,6 +278,7 @@ exports.updateProduct = async (req, res) => {
     Object.assign(product, updates);
     await product.save();
 
+    buildSearchIndex().catch(() => {});
     return res.status(200).json(product);
   } catch (_err) {
     return res.status(400).json({ message: "Failed to update product" });
@@ -294,8 +297,15 @@ exports.deleteProduct = async (req, res) => {
 
     await destroyCloudinaryAssets(product.imagePublicIds || []);
 
+    buildSearchIndex().catch(() => {});
     return res.status(200).json({ message: "Product deleted successfully" });
   } catch (_err) {
     return res.status(400).json({ message: "Failed to delete product" });
   }
+};
+
+exports.getSearchSuggestions = async (req, res) => {
+  const { q = "" } = req.query;
+  if (q.length < 2) return res.status(200).json([]);
+  return res.status(200).json(getSuggestions(q, 8));
 };

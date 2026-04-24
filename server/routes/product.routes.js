@@ -15,9 +15,11 @@ const {
   getSingleProduct,
   updateProduct,
   deleteProduct,
+  getSearchSuggestions,
 } = require("../controllers/product.controller");
 
 router.get("/", getProducts);
+router.get("/suggestions", getSearchSuggestions);
 router.get("/:id", optionalProtect, getSingleProduct);
 
 router.post(

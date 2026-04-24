@@ -16,6 +16,24 @@ import {
 const ORDER_STATUSES = ["PENDING_PAYMENT", "PAID", "SHIPPED", "DELIVERED", "CANCELLED"];
 const PAYMENT_STATUSES = ["PENDING", "PAID", "FAILED"];
 
+function sortByRelevance(orders, query) {
+  const q = query.toLowerCase();
+  const score = (o) => {
+    const id = String(o._id).toLowerCase();
+    const name = (o.user?.name || "").toLowerCase();
+    if (id === q || id.endsWith(q)) return 0;
+    if (name === q) return 1;
+    if (id.includes(q)) return 2;
+    if (name.includes(q)) return 3;
+    return 4;
+  };
+  return [...orders].sort((a, b) => {
+    const diff = score(a) - score(b);
+    if (diff !== 0) return diff;
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+}
+
 function Badge({ type, value }) {
   const paymentColors = {
     PAID: "bg-emerald-100 text-emerald-700",
@@ -88,7 +106,18 @@ function AllOrdersTab() {
       setLoading(true);
       setError("");
       const data = await api.getAdminOrders({ page, limit: 20, search, status: statusFilter, paymentStatus: paymentStatusFilter, paymentMethod: paymentMethodFilter, dateFrom, dateTo });
-      setOrders(data.orders || []);
+      const raw = data.orders || [];
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        const matched = raw.filter((o) => {
+          const id = String(o._id).toLowerCase();
+          const name = (o.user?.name || "").toLowerCase();
+          return id.includes(q) || name.includes(q);
+        });
+        setOrders(sortByRelevance(matched, search.trim()));
+      } else {
+        setOrders(raw);
+      }
       setTotalPages(data.pages || 1);
       setTotal(data.total || 0);
     } catch (err) {
@@ -369,7 +398,18 @@ function BankPaymentsTab() {
       setLoading(true);
       setError("");
       const data = await api.getAdminPendingBankOrders({ page, limit: 20, search });
-      setOrders(data.orders || []);
+      const raw = data.orders || [];
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        const matched = raw.filter((o) => {
+          const id = String(o._id).toLowerCase();
+          const name = (o.user?.name || "").toLowerCase();
+          return id.includes(q) || name.includes(q);
+        });
+        setOrders(sortByRelevance(matched, search.trim()));
+      } else {
+        setOrders(raw);
+      }
       setTotalPages(data.pages || 1);
     } catch (err) {
       setError(err.message || "Failed to load bank orders");
@@ -515,6 +555,13 @@ function BankPaymentsTab() {
   );
 }
 
+function openPdfInline(url) {
+  // Cloudinary raw PDFs default to attachment delivery — insert fl_attachment:false
+  // so the browser renders the PDF inline rather than downloading it
+  const inlineUrl = url.replace(/\/upload\/(?!fl_)/, "/upload/fl_attachment:false/");
+  window.open(inlineUrl, "_blank");
+}
+
 function PaymentSlipPreview({ url, resourceType, format }) {
   if (!url) return <p className="text-xs text-slate-400">No slip uploaded</p>;
 
@@ -528,7 +575,7 @@ function PaymentSlipPreview({ url, resourceType, format }) {
     <div className="space-y-2">
       {isPdf ? (
         <div
-          onClick={() => window.open(url, "_blank")}
+          onClick={() => openPdfInline(url)}
           className="flex h-28 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100"
         >
           <FileText className="h-8 w-8 text-slate-400" />

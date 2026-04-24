@@ -17,6 +17,7 @@ import {
 } from "recharts";
 import { api } from "../../lib/api";
 import { formatLKR } from "../../lib/formatLKR";
+import ProductImagePlaceholder from "../../components/products/ProductImagePlaceholder";
 import {
   ShoppingBag,
   ShoppingCart,
@@ -33,6 +34,23 @@ const AMBER = "#d97706";
 const DONUT_COLORS = ["#fde68a", "#fbbf24", "#f59e0b", "#d97706", "#b45309", "#fed7aa", "#fdba74", "#fb923c"];
 // amber-200 → amber-300 → amber-400 → amber-500 → amber-700 (lightest to darkest)
 const FUNNEL_COLORS = ["#fde68a", "#fcd34d", "#fbbf24", "#f59e0b", "#b45309"];
+
+// ─── Thumbnail with placeholder fallback ─────────────────────────────────────
+
+function DashboardThumb({ src }) {
+  const [error, setError] = useState(false);
+  if (!src || error) {
+    return <ProductImagePlaceholder className="h-9 w-9 shrink-0 rounded-lg" />;
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      className="h-9 w-9 shrink-0 rounded-lg object-cover"
+      onError={() => setError(true)}
+    />
+  );
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -671,7 +689,7 @@ function ConversionFunnelCard() {
                 ]}
                 contentStyle={{ borderRadius: "12px", border: "1px solid #f1f5f9", fontSize: "11px" }}
               />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="count" radius={[4, 4, 0, 0]} minPointSize={3}>
                 {data.map((_, i) => (
                   <Cell key={i} fill={FUNNEL_COLORS[i % FUNNEL_COLORS.length]} />
                 ))}
@@ -728,13 +746,7 @@ function TopProductsCard() {
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700">
                   {i + 1}
                 </span>
-                {(p.primaryImage || p.images?.[0]) ? (
-                  <img src={p.primaryImage || p.images[0] || "https://placehold.co/400x500?text=No+Image"} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
-                ) : (
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-300">
-                    <Package className="h-4 w-4" />
-                  </div>
-                )}
+                <DashboardThumb src={p.primaryImage || p.images?.[0]} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-semibold text-slate-900">{p.name}</p>
                   <p className="text-[10px] text-slate-400">{p.category}</p>
@@ -806,13 +818,7 @@ function LowStockCard() {
                 onClick={() => navigate(`/admin/products/edit/${p._id}`)}
                 className="flex cursor-pointer items-center gap-2.5 rounded-xl p-1.5 transition hover:bg-slate-50"
               >
-                {(p.primaryImage || p.images?.[0]) ? (
-                  <img src={p.primaryImage || p.images[0] || "https://placehold.co/400x500?text=No+Image"} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
-                ) : (
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-300">
-                    <Package className="h-4 w-4" />
-                  </div>
-                )}
+                <DashboardThumb src={p.primaryImage || p.images?.[0]} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-semibold text-slate-900">{p.name}</p>
                   <p className="text-[10px] text-slate-400">{p.category}</p>

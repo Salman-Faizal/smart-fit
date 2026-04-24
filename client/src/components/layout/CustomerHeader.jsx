@@ -1,8 +1,9 @@
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Search, Tag } from "lucide-react";
 import logo from "../../assets/logo.png";
 import { useAuth } from "../../hooks/useAuth";
-import { assetUrl } from "../../lib/api";
+import { api, assetUrl } from "../../lib/api";
 
 const NAV_ITEMS = [
   { label: "Home", id: "home" },
@@ -53,6 +54,11 @@ export default function CustomerHeader({ cartCount = 0 }) {
   const [search, setSearch] = useState("");
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
+  const [suggestions, setSuggestions] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const debounceRef = useRef(null);
+  const blurTimerRef = useRef(null);
 
   const isHomePage = pathname === "/home" || pathname === "/";
 
@@ -111,8 +117,87 @@ export default function CustomerHeader({ cartCount = 0 }) {
     }
   };
 
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (search.length < 2) {
+      setSuggestions([]);
+      setShowDropdown(false);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const data = await api.getSearchSuggestions(search);
+        setSuggestions(data);
+        setShowDropdown(data.length > 0);
+        setSelectedIndex(-1);
+      } catch {
+        // non-critical
+      }
+    }, 200);
+    return () => clearTimeout(debounceRef.current);
+  }, [search]);
+
+  const handleSuggestionSelect = useCallback(
+    (suggestion) => {
+      setSearch(suggestion.label);
+      setShowDropdown(false);
+      setSuggestions([]);
+      setSelectedIndex(-1);
+      if (suggestion.type === "product") {
+        navigate(`/search?q=${encodeURIComponent(suggestion.label)}`);
+      } else {
+        navigate(`/search?category=${encodeURIComponent(suggestion.category)}`);
+      }
+    },
+    [navigate],
+  );
+
+  const handleKeyDown = (e) => {
+    if (!showDropdown || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((i) => Math.min(i + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((i) => Math.max(i - 1, -1));
+    } else if (e.key === "Enter" && selectedIndex >= 0) {
+      e.preventDefault();
+      handleSuggestionSelect(suggestions[selectedIndex]);
+    } else if (e.key === "Escape") {
+      setShowDropdown(false);
+      setSelectedIndex(-1);
+    }
+  };
+
+  const handleBlur = () => {
+    blurTimerRef.current = setTimeout(() => {
+      setShowDropdown(false);
+      setSelectedIndex(-1);
+    }, 100);
+  };
+
+  const handleFocus = () => {
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    if (suggestions.length > 0 && search.length >= 2) setShowDropdown(true);
+  };
+
+  const highlightPrefix = (label, prefix) => {
+    const idx = label.toLowerCase().indexOf(prefix.toLowerCase());
+    if (idx === -1) return label;
+    return (
+      <>
+        {label.slice(0, idx)}
+        <span className="font-bold text-amber-600">{label.slice(idx, idx + prefix.length)}</span>
+        {label.slice(idx + prefix.length)}
+      </>
+    );
+  };
+
   const handleSearch = (e) => {
     e.preventDefault();
+    setSuggestions([]);
+    setShowDropdown(false);
+    setSelectedIndex(-1);
     const normalized = search.trim();
     navigate(normalized ? `/search?q=${encodeURIComponent(normalized)}` : "/search");
   };
@@ -180,7 +265,11 @@ export default function CustomerHeader({ cartCount = 0 }) {
                 placeholder="Search products..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={handleBlur}
+                onFocus={handleFocus}
                 className="w-full rounded-full border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-20 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
+                autoComplete="off"
               />
               <button
                 type="submit"
@@ -188,6 +277,38 @@ export default function CustomerHeader({ cartCount = 0 }) {
               >
                 Search
               </button>
+
+              {showDropdown && suggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full z-10 mt-1.5 max-h-72 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-lg">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={`${s.type}-${s.label}-${i}`}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleSuggestionSelect(s);
+                      }}
+                      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
+                        i === selectedIndex ? "bg-amber-50" : "hover:bg-slate-50"
+                      }`}
+                    >
+                      <span className="shrink-0 text-slate-400">
+                        {s.type === "category" ? (
+                          <Tag className="h-4 w-4" />
+                        ) : (
+                          <Search className="h-4 w-4" />
+                        )}
+                      </span>
+                      <span className="flex-1 truncate text-slate-700">
+                        {highlightPrefix(s.label, search)}
+                      </span>
+                      <span className="shrink-0 text-xs text-slate-400">
+                        {s.type === "category" ? "Category" : "Product"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </form>
         </div>

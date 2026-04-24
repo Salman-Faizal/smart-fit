@@ -20,6 +20,7 @@ import { formatLKR } from "../../lib/formatLKR";
 import { trackActivity } from "../../lib/trackActivity";
 import { useWishlist } from "../../context/WishlistContext";
 import { useAuth } from "../../hooks/useAuth";
+import ProductImagePlaceholder from "../../components/products/ProductImagePlaceholder";
 
 // ─── Seeded helpers ───────────────────────────────────────────────────────────
 
@@ -235,6 +236,12 @@ function SizeChartModal({ onClose }) {
 const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL"];
 const TABS = ["Description", "Details & Care", "Reviews"];
 
+function GalleryImage({ src, alt = "", className }) {
+  const [error, setError] = useState(false);
+  if (!src || error) return <ProductImagePlaceholder className={className} />;
+  return <img src={src} alt={alt} className={className} onError={() => setError(true)} />;
+}
+
 export default function CustomerProductDetail() {
   const { id } = useParams();
   const { isAuthenticated } = useAuth();
@@ -323,7 +330,7 @@ export default function CustomerProductDetail() {
     ? product.secondaryImages
     : product.images?.slice(1) || []
   ).map((img) => assetUrl(img));
-  const images = primaryImg ? [primaryImg, ...secondaryImgs] : secondaryImgs.length ? secondaryImgs : ["https://placehold.co/900x700?text=Product"];
+  const images = primaryImg ? [primaryImg, ...secondaryImgs] : secondaryImgs;
 
   const description =
     product.description && product.description.length > 20
@@ -362,12 +369,7 @@ export default function CustomerProductDetail() {
                         : "border-transparent opacity-55 hover:opacity-100"
                     }`}
                   >
-                    <img
-                      src={src}
-                      alt=""
-                      className="h-full w-full object-cover"
-                      onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
-                    />
+                    <GalleryImage src={src} className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -375,12 +377,15 @@ export default function CustomerProductDetail() {
 
             {/* Main image with hover zoom */}
             <div className="flex-1 overflow-hidden rounded-2xl bg-slate-100 cursor-zoom-in" style={{ height: "500px" }}>
-              <img
-                src={images[activeImage] || "https://placehold.co/400x500?text=No+Image"}
-                alt={product.name}
-                className="h-full w-full object-contain transition-transform duration-[400ms] hover:scale-[1.08]"
-                onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
-              />
+              {images.length > 0 ? (
+                <GalleryImage
+                  src={images[activeImage]}
+                  alt={product.name}
+                  className="h-full w-full object-contain transition-transform duration-[400ms] hover:scale-[1.08]"
+                />
+              ) : (
+                <ProductImagePlaceholder className="h-full w-full" />
+              )}
             </div>
           </div>
         </div>

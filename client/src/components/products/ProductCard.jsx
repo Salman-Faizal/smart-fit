@@ -24,8 +24,8 @@ import { useWishlist } from "../../context/WishlistContext";
 import { useAuth } from "../../hooks/useAuth";
 import { api } from "../../lib/api";
 import { trackActivity } from "../../lib/trackActivity";
+import ProductImagePlaceholder from "./ProductImagePlaceholder";
 
-const PLACEHOLDER = "https://placehold.co/400x500?text=No+Image";
 
 // ─── Seeded helpers ───────────────────────────────────────────────────────────
 
@@ -49,6 +49,24 @@ function seededRating(productId) {
   const rating = (4.1 + (h1 % 9) * 0.1).toFixed(1);
   const reviews = 40 + (h2 % 261);
   return { rating, reviews };
+}
+
+// ─── Image with placeholder fallback ─────────────────────────────────────────
+
+function ProductCardImage({ src, alt, className, loading }) {
+  const [error, setError] = useState(false);
+  if (!src || error) {
+    return <ProductImagePlaceholder className={className} />;
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      loading={loading}
+      onError={() => setError(true)}
+    />
+  );
 }
 
 // ─── SVG icon helpers ─────────────────────────────────────────────────────────
@@ -195,12 +213,11 @@ export default function ProductCard({
 
       {/* ── Image area ───────────────────────────────────────────────────── */}
       <Link to={destination} className="relative block overflow-hidden bg-slate-100" style={{ paddingBottom: "115%" }}>
-        <img
-          src={assetUrl(product.primaryImage || product.images?.[0]) || PLACEHOLDER}
+        <ProductCardImage
+          src={assetUrl(product.primaryImage || product.images?.[0])}
           alt={product.name}
           className="absolute inset-0 h-full w-full object-cover"
           loading="lazy"
-          onError={(e) => { e.target.onerror = null; e.target.src = PLACEHOLDER; }}
         />
 
         {/* Top-right badges — priority: Almost Sold Out > Top Selling > New Arrival > Out of Stock, max 2 */}

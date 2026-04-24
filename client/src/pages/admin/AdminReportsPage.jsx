@@ -734,7 +734,7 @@ export default function AdminReportsPage() {
                   <XAxis type="number" tick={{ fontSize: 10 }} />
                   <YAxis dataKey="label" type="category" width={110} tick={{ fontSize: 10 }} />
                   <Tooltip formatter={(v, name) => [v, name === "count" ? "Orders" : name]} />
-                  <Bar dataKey="count" fill={AMBER} radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 10, formatter: (v) => v || "" }} />
+                  <Bar dataKey="count" fill={AMBER} radius={[0, 4, 4, 0]} minPointSize={3} label={{ position: "right", fontSize: 10, formatter: (v) => v || "" }} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

@@ -7,8 +7,13 @@ import { formatLKR } from "../../lib/formatLKR";
 import { computeNewArrivalIds } from "../../lib/newArrivalUtils";
 import { useWishlist } from "../../context/WishlistContext";
 import { useAuth } from "../../hooks/useAuth";
+import ProductImagePlaceholder from "../../components/products/ProductImagePlaceholder";
 
-const PLACEHOLDER = "https://placehold.co/400x500?text=No+Image";
+function SearchResultImage({ src, alt, className }) {
+  const [error, setError] = useState(false);
+  if (!src || error) return <ProductImagePlaceholder className={className} />;
+  return <img src={src} alt={alt} className={className} onError={() => setError(true)} />;
+}
 
 function StarIcon() {
   return (
@@ -63,11 +68,10 @@ function ProductListRow({ product, isNewArrival }) {
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-3 transition hover:bg-slate-50">
       <Link to={`/products/${productId}`} className="flex-shrink-0">
-        <img
-          src={assetUrl(product.primaryImage || product.images?.[0]) || PLACEHOLDER}
+        <SearchResultImage
+          src={assetUrl(product.primaryImage || product.images?.[0])}
           alt={product.name}
           className="h-[100px] w-[100px] rounded-xl object-cover"
-          onError={(e) => { e.target.onerror = null; e.target.src = PLACEHOLDER; }}
         />
       </Link>
 

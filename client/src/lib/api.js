@@ -420,6 +420,8 @@ export const api = {
     request("/users/me/account", {
       method: "DELETE",
     }),
+  getSearchSuggestions: (q) =>
+    request(`/products/suggestions?q=${encodeURIComponent(q)}`),
   // Inventory Forecast
   getForecast: () => request("/admin/forecast"),
   getForecastSalesTrend: () => request("/admin/forecast/sales-trend"),

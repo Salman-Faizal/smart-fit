@@ -4,6 +4,7 @@ const Product = require("../models/Product");
 const User = require("../models/User");
 const AdminSettings = require("../models/AdminSettings");
 const Category = require("../models/Category");
+const { appendUniqueWithLimit } = require("./userTracking.service");
 
 const createHttpError = (statusCode, message) => {
   const error = new Error(message);
@@ -365,12 +366,36 @@ const approveBankPayment = async (orderId) => {
 
     for (const item of order.items) {
       const updated = await Product.findOneAndUpdate(
-        { _id: item.product, stock: { $gte: item.quantity } },
+        { _id: item.product?._id || item.product, stock: { $gte: item.quantity } },
         { $inc: { stock: -item.quantity } },
         { new: true, session },
       );
       if (!updated) throw createHttpError(400, "Insufficient stock");
     }
+
+    // Increment product purchase counts (mirrors Stripe payment path)
+    const purchaseOps = order.items.map((item) => ({
+      updateOne: {
+        filter: { _id: item.product?._id || item.product },
+        update: { $inc: { purchases: Number(item.quantity) } },
+      },
+    }));
+    if (purchaseOps.length) await Product.bulkWrite(purchaseOps, { session });
+
+    // Track purchased products for personalisation
+    const buyer = await User.findById(order.user).select("role purchasedProducts").session(session);
+    if (buyer && buyer.role === "customer") {
+      const ids = order.items.map((item) => item.product?._id || item.product);
+      buyer.purchasedProducts = appendUniqueWithLimit(buyer.purchasedProducts, ids);
+      await buyer.save({ session });
+    }
+
+    // Clear the buyer's cart so it doesn't reflect already-ordered items
+    await Order.findOneAndUpdate(
+      { user: order.user, status: "CART" },
+      { $set: { items: [], totalPrice: 0, paymentStatus: "PENDING" } },
+      { session },
+    );
 
     order.paymentStatus = "PAID";
     order.status = "PAID";
@@ -886,7 +911,6 @@ const getTopProductsDashboard = async (limit = 5) => {
     { $unwind: "$items" },
     { $group: { _id: "$items.product", unitsSold: { $sum: "$items.quantity" } } },
     { $sort: { unitsSold: -1 } },
-    { $limit: cappedLimit },
     {
       $lookup: {
         from: "products",
@@ -897,6 +921,7 @@ const getTopProductsDashboard = async (limit = 5) => {
     },
     { $unwind: "$product" },
     { $match: { "product.status": { $ne: "deleted" } } },
+    { $limit: cappedLimit },
     {
       $project: {
         _id: "$product._id",

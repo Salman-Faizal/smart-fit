@@ -18,6 +18,13 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, assetUrl } from "../../lib/api";
 import { formatLKR } from "../../lib/formatLKR";
 import { trackActivity } from "../../lib/trackActivity";
+import ProductImagePlaceholder from "../../components/products/ProductImagePlaceholder";
+
+function CheckoutProductImage({ src, alt, className }) {
+  const [error, setError] = useState(false);
+  if (!src || error) return <ProductImagePlaceholder className={className} />;
+  return <img src={src} alt={alt} className={className} onError={() => setError(true)} />;
+}
 
 // ─── Estimated delivery date ──────────────────────────────────────────────────
 
@@ -162,11 +169,10 @@ function UpsellCard({ product, onAdd, adding, added }) {
   return (
     <article className="flex w-40 flex-shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md sm:w-44">
       <Link to={`/products/${product._id}`} className="block flex-shrink-0">
-        <img
-          src={assetUrl(product.primaryImage || product.images?.[0]) || "https://placehold.co/400x500?text=No+Image"}
+        <CheckoutProductImage
+          src={assetUrl(product.primaryImage || product.images?.[0])}
           alt={product.name}
           className="h-32 w-full object-cover sm:h-36"
-          onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
         />
       </Link>
       <div className="flex flex-1 flex-col gap-2 p-3">
@@ -1010,7 +1016,7 @@ export default function CheckoutPage() {
             <ul className="space-y-3">
               {cart.items.map((item) => {
                 const productName = item.product?.name || "Product";
-                const imgUrl = assetUrl(item.product?.images?.[0]) || "https://placehold.co/400x500?text=No+Image";
+                const imgUrl = assetUrl(item.product?.images?.[0]);
                 const unitPrice = Number(item.price || 0);
                 const lineTotal = unitPrice * Number(item.quantity || 0);
 
@@ -1021,7 +1027,7 @@ export default function CheckoutPage() {
                   >
                     <div className="flex items-center gap-4">
                       <Link to={`/products/${item.product?._id}`} className="flex-shrink-0 overflow-hidden rounded-xl">
-                        <img src={imgUrl} alt={productName} className="h-20 w-20 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
+                        <CheckoutProductImage src={imgUrl} alt={productName} className="h-20 w-20 object-cover" />
                       </Link>
                       <div>
                         <p className="font-semibold leading-tight text-slate-800">{productName}</p>

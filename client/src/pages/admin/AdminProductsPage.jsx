@@ -15,6 +15,13 @@ import {
   ChevronRight,
   Download,
 } from "lucide-react";
+import ProductImagePlaceholder from "../../components/products/ProductImagePlaceholder";
+
+function AdminProductThumb({ src, alt, className }) {
+  const [error, setError] = useState(false);
+  if (!src || error) return <ProductImagePlaceholder className={className} />;
+  return <img src={src} alt={alt} className={className} onError={() => setError(true)} />;
+}
 
 const SIZES_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL"];
 const SORT_OPTIONS = [
@@ -435,18 +442,11 @@ export default function AdminProductsPage() {
                         className="h-4 w-4 rounded accent-amber-600" />
                     </td>
                     <td className="px-4 py-3">
-                      {(p.primaryImage || p.images?.[0]) ? (
-                        <img
-                          src={p.primaryImage || p.images[0]}
-                          alt={p.name}
-                          className="h-10 w-10 rounded-lg object-cover bg-slate-100"
-                          onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }}
-                        />
-                      ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-300">
-                          <Package className="h-5 w-5" />
-                        </div>
-                      )}
+                      <AdminProductThumb
+                        src={p.primaryImage || p.images?.[0]}
+                        alt={p.name}
+                        className="h-10 w-10 rounded-lg object-cover bg-slate-100"
+                      />
                     </td>
                     <td className="px-4 py-3 font-medium text-slate-900 max-w-[180px]">
                       <p className="truncate">{p.name}</p>

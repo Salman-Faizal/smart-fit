@@ -1,5 +1,7 @@
 const adminService = require("../services/admin.service");
 const { updateTrendingScores } = require("../services/trending.service");
+const { buildSearchIndex } = require("../services/searchIndex.service");
+const { updateOrderStatus } = require("../services/order.service");
 const { destroyCloudinaryAsset } = require("../utils/cloudinaryAsset");
 const User = require("../models/User");
 const { sendEmail, orderConfirmationEmail, orderRejectionEmail } = require("../services/email.service");
@@ -66,7 +68,6 @@ exports.getOrderById = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const { updateOrderStatus } = require("../services/order.service");
     const order = await updateOrderStatus(req.params.id, status);
     return res.status(200).json({ message: "Order status updated", order });
   } catch (error) {
@@ -276,6 +277,7 @@ exports.getProducts = async (req, res) => {
 exports.updateProductStatus = async (req, res) => {
   try {
     const product = await adminService.updateProductStatus(req.params.id, req.body.status);
+    buildSearchIndex().catch(() => {});
     return res.status(200).json({ message: "Product status updated", product });
   } catch (error) {
     return handleError(res, error);
@@ -285,6 +287,7 @@ exports.updateProductStatus = async (req, res) => {
 exports.bulkCreateProducts = async (req, res) => {
   try {
     const result = await adminService.bulkCreateProducts(req.body.products);
+    buildSearchIndex().catch(() => {});
     return res.status(200).json({ message: "Bulk import complete", ...result });
   } catch (error) {
     return handleError(res, error);
@@ -294,6 +297,7 @@ exports.bulkCreateProducts = async (req, res) => {
 exports.softDeleteProduct = async (req, res) => {
   try {
     await adminService.softDeleteProduct(req.params.id);
+    buildSearchIndex().catch(() => {});
     return res.status(200).json({ message: "Product deleted" });
   } catch (error) {
     return handleError(res, error);

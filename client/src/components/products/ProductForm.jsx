@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assetUrl } from "../../lib/api";
 import { ChevronDown } from "lucide-react";
+import ProductImagePlaceholder from "./ProductImagePlaceholder";
+
+function FormThumb({ src, alt = "", className }) {
+  const [error, setError] = useState(false);
+  if (!src || error) return <ProductImagePlaceholder className={className} />;
+  return <img src={src} alt={alt} className={className} onError={() => setError(true)} />;
+}
 
 const ALL_SIZES = ["S", "M", "L", "XL", "XXL"];
 
@@ -292,12 +299,12 @@ export default function ProductForm({
         <span className="block text-sm font-medium text-slate-700 mb-2">Primary Image <span className="text-red-500">*</span></span>
         {primaryImagePreview ? (
           <div className="relative inline-block">
-            <img src={primaryImagePreview} alt="primary preview" className="h-28 w-28 rounded-xl object-cover bg-slate-100" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
+            <FormThumb src={primaryImagePreview} alt="primary preview" className="h-28 w-28 rounded-xl object-cover bg-slate-100" />
             <button type="button" onClick={() => { setPrimaryImageFile(null); setPrimaryImagePreview(null); }} className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow">×</button>
           </div>
         ) : currentPrimaryImage ? (
           <div className="relative inline-block">
-            <img src={assetUrl(currentPrimaryImage)} alt="primary" className="h-28 w-28 rounded-xl object-cover bg-slate-100" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
+            <FormThumb src={assetUrl(currentPrimaryImage)} alt="primary" className="h-28 w-28 rounded-xl object-cover bg-slate-100" />
             <button type="button" onClick={() => setCurrentPrimaryImage("")} className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow">×</button>
           </div>
         ) : (
@@ -311,13 +318,13 @@ export default function ProductForm({
         <div className="flex flex-wrap gap-3 mb-2">
           {keepSecondaryImages.map((url, idx) => (
             <div key={`existing-${idx}`} className="relative">
-              <img src={assetUrl(url)} alt={`secondary-${idx + 1}`} className="h-20 w-20 rounded-lg object-cover bg-slate-100" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
+              <FormThumb src={assetUrl(url)} alt={`secondary-${idx + 1}`} className="h-20 w-20 rounded-lg object-cover bg-slate-100" />
               <button type="button" onClick={() => setKeepSecondaryImages((prev) => prev.filter((_, i) => i !== idx))} className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow">×</button>
             </div>
           ))}
           {secondaryImagePreviews.map((src, idx) => (
             <div key={`new-${idx}`} className="relative">
-              <img src={src} alt={`new-secondary-${idx + 1}`} className="h-20 w-20 rounded-lg object-cover bg-slate-100" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x500?text=No+Image"; }} />
+              <FormThumb src={src} alt={`new-secondary-${idx + 1}`} className="h-20 w-20 rounded-lg object-cover bg-slate-100" />
               <button type="button" onClick={() => removeNewSecondary(idx)} className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow">×</button>
             </div>
           ))}

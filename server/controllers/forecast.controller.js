@@ -308,7 +308,7 @@ exports.getSalesTrend = async (req, res) => {
       { $unwind: "$items" },
       { $group: { _id: "$items.product", total: { $sum: "$items.quantity" } } },
       { $sort: { total: -1 } },
-      { $limit: 5 },
+      { $limit: 3 },
     ]);
 
     if (topAgg.length === 0) {
@@ -379,11 +379,11 @@ exports.getSalesTrend = async (req, res) => {
 
     const series = topProductIds.map((pid) => {
       const strId = String(pid);
-      const name = nameMap.get(strId) || "Unknown";
+      const name = nameMap.get(strId) || strId;
       const dayMap = salesLookup.get(strId) || new Map();
 
-      // Build 30-day actual values
-      const actual = histKeys.map((key) => dayMap.get(key) ?? 0);
+      // Build 30-day actual values (integers)
+      const actual = histKeys.map((key) => Math.round(dayMap.get(key) ?? 0));
 
       // 7-day rolling average from the most recent 7 days
       const last7 = actual.slice(-7);
@@ -399,26 +399,31 @@ exports.getSalesTrend = async (req, res) => {
         else if (change < -0.05) trendDir = "declining";
       }
 
-      // Build 14-day forecast with trend decay/growth
-      const forecast = futureKeys.map((_, dayIdx) => {
+      // Continuity: forecast starts from the last actual value so the dashed
+      // line connects visually to where the solid line ends
+      const lastActualValue = actual[actual.length - 1];
+
+      // Build 14-day forecast with trend decay/growth (whole integers)
+      const forecastValues = futureKeys.map((_, dayIdx) => {
         let projected = avg7;
         if (trendDir === "declining") {
           projected = avg7 * Math.pow(0.95, dayIdx + 1);
         } else if (trendDir === "rising") {
           projected = Math.min(avg7 * Math.pow(1.02, dayIdx + 1), avg7 * 2);
         }
-        return Math.max(0, Math.round(projected * 10) / 10);
+        return Math.max(0, Math.round(projected));
       });
 
       return {
         name,
         actual: [...actual, ...Array(14).fill(null)],
-        forecast: [...Array(30).fill(null), ...forecast],
+        // index 29 = today: set to lastActualValue for visual continuity
+        forecast: [...Array(29).fill(null), lastActualValue, ...forecastValues],
       };
     });
 
     return res.json({
-      products: topProductIds.map((id) => nameMap.get(String(id)) || "Unknown"),
+      products: topProductIds.map((id) => nameMap.get(String(id)) || String(id)),
       dates,
       series,
     });
