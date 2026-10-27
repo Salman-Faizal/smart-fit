@@ -260,20 +260,6 @@ A Vercel SPA rewrite configuration is included in `client/vercel.json`.
 
 ## Screenshots
 
-*Screenshots will be added here.*
-
-| Screen | Planned Screenshot |
-| --- | --- |
-| Storefront and recommendations | `docs/screenshots/storefront.png` |
-| Product details | `docs/screenshots/product-details.png` |
-| Style quiz and results | `docs/screenshots/style-quiz.png` |
-| Checkout | `docs/screenshots/checkout.png` |
-| Admin dashboard | `docs/screenshots/admin-dashboard.png` |
-| Inventory forecasting | `docs/screenshots/inventory-forecast.png` |
-
-<!--
-Uncomment these image references after adding the screenshot files.
-
 ### Customer Storefront
 ![Customer storefront](docs/screenshots/storefront.png)
 
@@ -285,7 +271,6 @@ Uncomment these image references after adding the screenshot files.
 
 ### Inventory Forecasting
 ![Inventory forecasting](docs/screenshots/inventory-forecast.png)
--->
 
 ## Development Acknowledgment
 
